@@ -1,18 +1,19 @@
 package GettingStarted;
 
-import org.apache.hc.core5.http.HttpHost;
+import TestExtensions.OpenSearchResourceManagementExtension;
+import TestExtensions.OpenSearchSharedResource;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.junit.BeforeClass;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.opensearch.client.opensearch.OpenSearchClient;
-import org.opensearch.client.transport.httpclient5.ApacheHttpClient5TransportBuilder;
+import org.opensearch.client.opensearch._types.HealthStatus;
+import org.opensearch.client.opensearch.indices.CreateIndexRequest;
+import org.opensearch.client.opensearch.indices.DeleteIndexRequest;
+import org.opensearch.client.opensearch.indices.GetIndexRequest;
 
 import java.io.IOException;
-import java.nio.file.Paths;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -42,46 +43,67 @@ import static org.assertj.core.api.Assertions.assertThat;
  * It is recommended to share OpenSearch clients, rather than creating many, so @BeforeAll setup creates this shared client.
  * Specifically for this file we want tests to run sequentially
  */
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@ExtendWith(OpenSearchResourceManagementExtension.class)
 public class GettingStartedTests {
-    private static OpenSearchClient openSearchClient;
     private static final Logger logger = LogManager.getLogger(GettingStartedTests.class);
 
-    @BeforeAll
-    public static void setupBeforeAll() throws Exception {
-        // Run docker-compose up command before tests start
-        ProcessBuilder processBuilder = new ProcessBuilder("docker-compose", "-f", "infrastructure/docker-compose.yml", "up", "-d");
-        Process process = processBuilder.start();
-        var result = process.waitFor(); // Wait for the command to finish
-        if (result != 0)
-        {
-            throw new Exception("Failed to start docker compose");
-        }
+    private OpenSearchClient openSearchClient;
 
-        openSearchClient = new OpenSearchClient(ApacheHttpClient5TransportBuilder.builder(new HttpHost("http", "localhost", 9200)).build());
-    }
-
-    @AfterAll
-    public static void tearDownAfterAll() throws Exception {
-        // Tear down our infrastructure and associated volumes so we avoid persistent storage
-        ProcessBuilder processBuilder = new ProcessBuilder("docker-compose", "-f", "infrastructure/docker-compose.yml", "down", "--volumes");
-        Process process = processBuilder.start();
-        var result = process.waitFor(); // Wait for the command to finish
-        if (result != 0)
-        {
-            throw new Exception("Failed to start docker compose");
-        }
+    public GettingStartedTests(OpenSearchSharedResource openSearchSharedResource) {
+        this.openSearchClient = openSearchSharedResource.getOpenSearchClient();
     }
 
     /**
-     * A simple request to start exploring the OpenSearch client is to list the indices in the cluster
-     * When running the included docker-compose file, this will list the .kibana index
+     * A simple request to start exploring the OpenSearch client is to get the health of the cluster
+     * The setup code will ensure that the cluster is ready to be queried, as issuing a request while it is starting up
+     * will result in an exception org.apache.hc.core5.http.ConnectionClosedException: Connection closed by peer
      */
     @Test
-    public void ListIndices() throws IOException {
-        var indices = openSearchClient.cat().indices();
+    @Order(1)
+    public void GetClusterHealth_HasGreenStatus() throws IOException {
+        var healthResponse = openSearchClient.cluster().health();
+        assertThat(healthResponse.status()).isEqualTo(HealthStatus.Green);
+    }
 
-        assertThat(indices.valueBody().size()).isEqualTo(1);
-        assertThat(indices.valueBody().getFirst().index()).isEqualTo(".kibana_1");
+    @Test
+    public void GetClusterHealth_HasOneDataNode() throws IOException {
+        var indices = openSearchClient.cluster().health();
+        assertThat(indices.numberOfDataNodes()).isEqualTo(1);
+    }
+
+    @Test
+    public void OpenSearchClient_CanCreate_AndDelete_AnIndex() throws IOException {
+        var testIndexName = "test-index";
+        var createIndexRequest = new CreateIndexRequest
+                .Builder()
+                .index(testIndexName)
+                .build();
+
+        // Create the index
+        var createIndexResponse = openSearchClient.indices().create(createIndexRequest);
+
+        // Assert that it was successful
+        assertThat(createIndexResponse.acknowledged()).isTrue();
+        assertThat(createIndexResponse.index()).isEqualTo(testIndexName);
+
+        // Look up the created index
+        var getIndexRequest = new GetIndexRequest
+                .Builder()
+                .index(testIndexName)
+                .build();
+
+        // Make a call to fetch the index info by index name
+        var getIndexResponse = openSearchClient.indices().get(getIndexRequest);
+        // Assert that it was successful
+        assertThat(getIndexResponse.result().size()).isEqualTo(1);
+        assertThat(getIndexResponse.result()).containsKey(testIndexName);
+
+        var deleteIndexRequest = new DeleteIndexRequest
+                .Builder()
+                .index(testIndexName)
+                .build();
+
+        var deleteIndexResponse = openSearchClient.indices().delete(deleteIndexRequest);
+        assertThat(deleteIndexResponse.acknowledged()).isTrue();
     }
 }
