@@ -1,11 +1,8 @@
 package TestExtensions;
 
-import GettingStarted.GettingStartedTests;
 import org.apache.hc.core5.http.HttpHost;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.*;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.HealthStatus;
@@ -85,9 +82,7 @@ public class OpenSearchResourceManagementExtension implements BeforeAllCallback,
             try {
                 var status = openSearchClient.cluster().health().status();
                 clusterIsReady = status == HealthStatus.Green;
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 // Uncomment for debugging
                 // logger.info("Exception", e);
             }
@@ -105,14 +100,15 @@ public class OpenSearchResourceManagementExtension implements BeforeAllCallback,
         Process process = processBuilder.start();
         var result = process.waitFor(); // Wait for the command to finish
         if (result != 0) {
-            throw new Exception("Failed to start docker compose");
+            throw new Exception("Failed to tear down docker compose");
         }
         logger.info("Finished tearing down");
     }
 
     @Override
     public boolean supportsParameter(ParameterContext parameterContext, ExtensionContext extensionContext) {
-        return true;
+        // Only resolve a specific type, not generic Strings
+        return parameterContext.getParameter().getType() == OpenSearchSharedResource.class;
     }
 
     @Override
