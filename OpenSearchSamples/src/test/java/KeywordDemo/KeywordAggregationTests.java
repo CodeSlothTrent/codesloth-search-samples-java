@@ -5,6 +5,7 @@ import KeywordDemo.Documents.UserFavouriteProducts;
 import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
 import TestInfrastructure.OpenSearchIndexFixture;
+import TestInfrastructure.OpenSearchRequestLogger;
 import TestInfrastructure.OpenSearchTestIndex;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -16,6 +17,7 @@ import org.opensearch.client.opensearch._types.FieldValue;
 import org.opensearch.client.opensearch._types.SortOrder;
 import org.opensearch.client.opensearch._types.aggregations.*;
 import org.opensearch.client.opensearch._types.mapping.Property;
+import org.opensearch.client.opensearch._types.query_dsl.MatchAllQuery;
 import org.opensearch.client.opensearch._types.query_dsl.Query;
 import org.opensearch.client.opensearch.core.SearchRequest;
 import org.opensearch.client.opensearch.core.SearchResponse;
@@ -291,12 +293,16 @@ public class KeywordAggregationTests {
             // Create a search request with adjacency matrix aggregation
             SearchRequest searchRequest = new SearchRequest.Builder()
                     .index(testIndex.getName())
+                    .query(builder -> builder.matchAll(new MatchAllQuery.Builder().build()))
                     .aggregations("product_matrix", a -> a
                             .adjacencyMatrix(am -> am
                                     .filters(filterMap)
                             )
                     )
+                    .q("?typed_keys=true")
                     .build();
+
+            OpenSearchRequestLogger.LogRequestJson(searchRequest);
 
             // Execute the search request
             SearchResponse<UserFavouriteProducts> response = openSearchClient.search(searchRequest, UserFavouriteProducts.class);
@@ -327,4 +333,4 @@ public class KeywordAggregationTests {
             assertThat(bucketCounts).containsEntry("mouse&mouse pad", 2L);
         }
     }
-} 
+}
