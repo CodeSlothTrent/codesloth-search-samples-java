@@ -8,6 +8,7 @@ import java.util.Objects;
 public class ProductDocument implements IDocumentWithId {
     private String id;
     private String name;
+    private int rank;
 
     /**
      * Default constructor for serialization/deserialization.
@@ -20,10 +21,12 @@ public class ProductDocument implements IDocumentWithId {
      *
      * @param id   The product ID
      * @param name The product name
+     * @param rank The product rank
      */
-    public ProductDocument(int id, String name) {
+    public ProductDocument(int id, String name, int rank) {
         this.id = String.valueOf(id);
         this.name = Objects.requireNonNull(name, "name cannot be null");
+        this.rank = rank;
     }
 
     /**
@@ -66,17 +69,37 @@ public class ProductDocument implements IDocumentWithId {
         this.name = name;
     }
 
+    /**
+     * Gets the product rank.
+     *
+     * @return The product rank
+     */
+    public int getRank() {
+        return rank;
+    }
+
+    /**
+     * Sets the product rank.
+     *
+     * @param rank The product rank
+     */
+    public void setRank(int rank) {
+        this.rank = rank;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         ProductDocument that = (ProductDocument) o;
-        return id == that.id && Objects.equals(name, that.name);
+        return Objects.equals(id, that.id) && 
+               Objects.equals(name, that.name) &&
+               rank == that.rank;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, name);
+        return Objects.hash(id, name, rank);
     }
 
     @Override
@@ -84,6 +107,7 @@ public class ProductDocument implements IDocumentWithId {
         return "ProductDocument{" +
                 "id=" + id +
                 ", name='" + name + '\'' +
+                ", rank=" + rank +
                 '}';
     }
 } 

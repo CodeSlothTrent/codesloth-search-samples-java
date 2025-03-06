@@ -73,7 +73,10 @@ public class OpenSearchResourceManagementExtension implements BeforeAllCallback,
             throw new Exception("Failed to start docker compose");
         }
 
-        var openSearchClient = new OpenSearchClient(ApacheHttpClient5TransportBuilder.builder(new HttpHost("http", "localhost", 9200)).build());
+        var openSearchClient = new OpenSearchClient(
+            ApacheHttpClient5TransportBuilder.builder(new HttpHost("http", "localhost", 9200))
+                .setMapper(new org.opensearch.client.json.jackson.JacksonJsonpMapper())
+                .build());
 
         var clusterIsReady = false;
         while (!clusterIsReady) {

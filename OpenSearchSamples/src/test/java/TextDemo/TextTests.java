@@ -68,7 +68,7 @@ public class TextTests {
                 mapping.properties("description", Property.of(p -> p.text(t -> t))))) {
 
             // Create and index a product document
-            ProductDocument productDocument = new ProductDocument(1, text);
+            ProductDocument productDocument = new ProductDocument(1, text, 1);
             testIndex.indexDocuments(new ProductDocument[]{productDocument});
 
             // Get term vectors for the document
@@ -133,7 +133,7 @@ public class TextTests {
                         analyzerMap)))) {
 
             // Create and index a product document
-            ProductDocument productDocument = new ProductDocument(1, text);
+            ProductDocument productDocument = new ProductDocument(1, text, 1);
             testIndex.indexDocuments(new ProductDocument[]{productDocument});
 
             // Get term vectors for the document
@@ -195,7 +195,7 @@ public class TextTests {
                 settings -> settings.analysis(a -> a.analyzer(analyzerMap)))) {
 
             // Create and index a product document
-            ProductDocument productDocument = new ProductDocument(1, text);
+            ProductDocument productDocument = new ProductDocument(1, text, 1);
             testIndex.indexDocuments(new ProductDocument[]{productDocument});
 
             // Get term vectors for the document
@@ -239,7 +239,7 @@ public class TextTests {
                 mapping.properties("description", Property.of(p -> p.text(t -> t))))) {
 
             // Create and index a product document
-            ProductDocument productDocument = new ProductDocument(1, text);
+            ProductDocument productDocument = new ProductDocument(1, text, 1);
             testIndex.indexDocuments(new ProductDocument[]{productDocument});
 
             // Search for documents with a term query

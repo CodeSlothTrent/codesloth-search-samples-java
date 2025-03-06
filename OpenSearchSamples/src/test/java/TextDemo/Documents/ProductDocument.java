@@ -10,6 +10,7 @@ import java.util.Objects;
 public class ProductDocument implements IDocumentWithId {
     private String id;
     private String description;
+    private int rank;
 
     /**
      * Default constructor for serialization/deserialization.
@@ -18,14 +19,16 @@ public class ProductDocument implements IDocumentWithId {
     }
 
     /**
-     * Creates a new ProductDocument with the specified ID and description.
+     * Creates a new ProductDocument with the specified ID, description, and rank.
      *
      * @param id          The product ID
      * @param description The product description
+     * @param rank        The product rank
      */
-    public ProductDocument(int id, String description) {
+    public ProductDocument(int id, String description, int rank) {
         this.id = String.valueOf(id);
         this.description = Objects.requireNonNull(description, "description cannot be null");
+        this.rank = rank;
     }
 
     /**
@@ -67,17 +70,37 @@ public class ProductDocument implements IDocumentWithId {
         this.description = description;
     }
 
+    /**
+     * Gets the product rank.
+     *
+     * @return The product rank
+     */
+    public int getRank() {
+        return rank;
+    }
+
+    /**
+     * Sets the product rank.
+     *
+     * @param rank The product rank
+     */
+    public void setRank(int rank) {
+        this.rank = rank;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         ProductDocument that = (ProductDocument) o;
-        return id == that.id && Objects.equals(description, that.description);
+        return Objects.equals(id, that.id) && 
+               Objects.equals(description, that.description) &&
+               rank == that.rank;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, description);
+        return Objects.hash(id, description, rank);
     }
 
     @Override
@@ -85,6 +108,7 @@ public class ProductDocument implements IDocumentWithId {
         return "ProductDocument{" +
                 "id=" + id +
                 ", description='" + description + '\'' +
+                ", rank=" + rank +
                 '}';
     }
 } 

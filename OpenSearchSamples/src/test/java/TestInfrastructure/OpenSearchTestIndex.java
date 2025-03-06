@@ -57,13 +57,20 @@ public class OpenSearchTestIndex implements AutoCloseable {
                 .index(name)
                 .mappings(mappingBuilder.build());
 
+        // Always set shard count to 1
+        IndexSettings.Builder settingsBuilder = new IndexSettings.Builder()
+                .numberOfShards("1")
+                .numberOfReplicas("0");
+
         if (settingsConsumer != null) {
-            IndexSettings.Builder settingsBuilder = new IndexSettings.Builder();
             settingsConsumer.accept(settingsBuilder);
-            requestBuilder.settings(settingsBuilder.build());
         }
 
-        CreateIndexResponse response = openSearchClient.indices().create(requestBuilder.build());
+        requestBuilder.settings(settingsBuilder.build());
+
+        var request = requestBuilder.build();
+        OpenSearchRequestLogger.LogRequestJson(request);
+        CreateIndexResponse response = openSearchClient.indices().create(request);
 
         if (!response.acknowledged()) {
             throw new IOException("Failed to create index: " + name);

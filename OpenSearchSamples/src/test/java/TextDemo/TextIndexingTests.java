@@ -64,7 +64,7 @@ public class TextIndexingTests {
                 mapping.properties("description", Property.of(p -> p.text(t -> t))))) {
 
             // Create and index a product document
-            ProductDocument productDocument = new ProductDocument(1, description);
+            ProductDocument productDocument = new ProductDocument(1, description, 1);
             testIndex.indexDocuments(new ProductDocument[]{productDocument});
 
             // Get term vectors for the document

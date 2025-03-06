@@ -64,8 +64,8 @@ public class KeywordSearchingTests {
             
             // Create and index product documents
             ProductDocument[] productDocuments = new ProductDocument[] {
-                new ProductDocument(1, "mouse"),
-                new ProductDocument(2, "mouse pad")
+                new ProductDocument(1, "mouse", 1),
+                new ProductDocument(2, "mouse pad", 2)
             };
             testIndex.indexDocuments(productDocuments);
 
@@ -108,8 +108,8 @@ public class KeywordSearchingTests {
             
             // Create and index product documents
             ProductDocument[] productDocuments = new ProductDocument[] {
-                new ProductDocument(1, "mouse"),
-                new ProductDocument(2, "mouse pad")
+                new ProductDocument(1, "mouse", 1),
+                new ProductDocument(2, "mouse pad", 2)
             };
             testIndex.indexDocuments(productDocuments);
 
@@ -156,8 +156,8 @@ public class KeywordSearchingTests {
             
             // Create and index product documents
             ProductDocument[] productDocuments = new ProductDocument[] {
-                new ProductDocument(1, "mouse"),
-                new ProductDocument(2, "mouse pad")
+                new ProductDocument(1, "mouse", 1),
+                new ProductDocument(2, "mouse pad", 2)
             };
             testIndex.indexDocuments(productDocuments);
 
@@ -207,8 +207,8 @@ public class KeywordSearchingTests {
             
             // Create and index product documents
             ProductDocument[] productDocuments = new ProductDocument[] {
-                new ProductDocument(1, "mouse"),
-                new ProductDocument(2, "mouse pad")
+                new ProductDocument(1, "mouse", 1),
+                new ProductDocument(2, "mouse pad", 2)
             };
             testIndex.indexDocuments(productDocuments);
 
@@ -265,8 +265,8 @@ public class KeywordSearchingTests {
             
             // Create and index product documents
             ProductDocument[] productDocuments = new ProductDocument[] {
-                new ProductDocument(1, "mouse"),
-                new ProductDocument(2, "mouse pad")
+                new ProductDocument(1, "mouse", 1),
+                new ProductDocument(2, "mouse pad", 2)
             };
             testIndex.indexDocuments(productDocuments);
 

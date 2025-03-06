@@ -8,7 +8,14 @@ This repository contains Java code samples for working with OpenSearch, demonstr
   - `src/test/java/` - Test classes demonstrating OpenSearch features
     - `GettingStarted/` - Basic examples for getting started with OpenSearch
     - `KeywordDemo/` - Examples demonstrating keyword field mapping and searching
+      - `KeywordIndexingTests.java` - Tests for keyword field indexing
+      - `KeywordSearchingTests.java` - Tests for keyword field searching
+      - `KeywordAggregationTests.java` - Tests for keyword field aggregations
+      - `KeywordScriptingTests.java` - Tests for keyword field scripting
+      - `KeywordSortingTests.java` - Tests for keyword field sorting
     - `TextDemo/` - Examples demonstrating text field mapping and analysis
+      - `TextIndexingTests.java` - Tests for text field indexing
+      - `TextTests.java` - Tests for text field analysis and searching
     - `TestExtensions/` - JUnit 5 extensions for managing OpenSearch resources
     - `TestInfrastructure/` - Helper classes for creating and managing test indices
   - `infrastructure/` - Docker Compose configuration for running OpenSearch locally
@@ -48,6 +55,9 @@ Tests demonstrating how keyword fields work in OpenSearch:
 - Exact matching with term queries
 - Filtering with boolean queries
 - Scoring with constant score queries
+- Aggregations (terms, cardinality, top hits, field collapsing, adjacency matrix)
+- Scripting (creating scripted fields, using parameters in scripts)
+- Sorting (script-based sorting, field sorting, lexicographical vs. numerical sorting)
 
 ### Text Demo Tests
 

@@ -61,7 +61,7 @@ public class KeywordIndexingTests {
                 mapping.properties("name", Property.of(p -> p.keyword(k -> k))))) {
 
             // Create and index a product document
-            ProductDocument productDocument = new ProductDocument(1, termText);
+            ProductDocument productDocument = new ProductDocument(1, termText, 1);
             testIndex.indexDocuments(new ProductDocument[]{productDocument});
 
             // Get term vectors for the document
