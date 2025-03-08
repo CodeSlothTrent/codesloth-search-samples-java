@@ -48,7 +48,11 @@ public class KeywordSearchingTests {
     /**
      * This test verifies that term queries on keyword fields match exactly the whole term.
      * 
-     * @param termText The text to search for
+     * This function is used to define a keyword mapping for the Name of a product.
+     * OpenSearch documentation: https://opensearch.org/docs/2.0/opensearch/supported-field-types/keyword/
+     * ElasticSearch documentation is far richer in very similar detail: https://www.elastic.co/guide/en/elasticsearch/reference/current/keyword.html
+     *
+     * @param termText    The text to search for
      * @param explanation The explanation of the test case
      * @throws IOException If an I/O error occurs
      */
@@ -90,9 +94,9 @@ public class KeywordSearchingTests {
     }
 
     /**
-     * This test verifies that keyword fields can be filtered using a boolean query.
-     * 
-     * @param termText The text to filter on
+     * This test verifies that keyword fields can be filtered using boolean queries.
+     *
+     * @param termText    The text to search for
      * @param explanation The explanation of the test case
      * @throws IOException If an I/O error occurs
      */
@@ -138,9 +142,9 @@ public class KeywordSearchingTests {
     }
 
     /**
-     * This test verifies that keyword fields can be filtered and scored using a constant score query.
-     * 
-     * @param termText The text to filter on
+     * This test verifies that keyword fields can be filtered and scored using constant score queries.
+     *
+     * @param termText    The text to search for
      * @param explanation The explanation of the test case
      * @throws IOException If an I/O error occurs
      */
@@ -188,11 +192,11 @@ public class KeywordSearchingTests {
     }
 
     /**
-     * This test verifies that match queries on keyword fields do not apply query-time analysis.
-     * 
-     * @param matchText The text to match
-     * @param expectedTokensStr The tokens that would be produced by the standard analyzer
-     * @param explanation The explanation of the test case
+     * This test verifies that keyword fields do not undergo query-time analysis for match queries.
+     *
+     * @param matchText         The text to search for
+     * @param expectedTokensStr The expected tokens as a comma-separated string
+     * @param explanation       The explanation of the test case
      * @throws IOException If an I/O error occurs
      */
     @ParameterizedTest
@@ -247,8 +251,8 @@ public class KeywordSearchingTests {
 
     /**
      * This test verifies that keyword fields do not match on slightly mismatched terms.
-     * 
-     * @param termText The text to search for
+     *
+     * @param termText    The text to search for
      * @param explanation The explanation of the test case
      * @throws IOException If an I/O error occurs
      */

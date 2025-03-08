@@ -27,6 +27,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Tests for text field indexing in OpenSearch.
  * These tests demonstrate how text fields are indexed and stored in OpenSearch.
+ * 
+ * @see KeywordDemo.KeywordIndexingTests to compare how keywords differ to text fields
  */
 @ExtendWith(OpenSearchResourceManagementExtension.class)
 public class TextIndexingTests {
@@ -46,6 +48,10 @@ public class TextIndexingTests {
 
     /**
      * This test verifies that text fields are tokenized using the standard analyzer.
+     * 
+     * This function is used to define a text mapping for the description of a product.
+     * OpenSearch documentation: https://opensearch.org/docs/latest/field-types/supported-field-types/text/
+     * ElasticSearch documentation is far richer in very similar detail: https://www.elastic.co/guide/en/elasticsearch/reference/current/text.html
      *
      * @param description       The text to index
      * @param expectedTokensStr The expected tokens and frequencies

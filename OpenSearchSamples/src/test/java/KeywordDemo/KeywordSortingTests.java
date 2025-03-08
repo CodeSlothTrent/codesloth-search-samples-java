@@ -47,6 +47,10 @@ public class KeywordSortingTests {
     /**
      * This test verifies that keyword fields can be used to script a sorted field.
      * 
+     * This function is used to define a keyword mapping for the Name of a product.
+     * OpenSearch documentation: https://opensearch.org/docs/2.0/opensearch/supported-field-types/keyword/
+     * ElasticSearch documentation is far richer in very similar detail: https://www.elastic.co/guide/en/elasticsearch/reference/current/keyword.html
+     * 
      * @throws IOException If an I/O error occurs
      */
     @Test
@@ -95,6 +99,7 @@ public class KeywordSortingTests {
 
     /**
      * This test verifies that keyword fields can be used as a sorted field without any special considerations.
+     * 
      * Keyword fields do not require anything special to support sorting.
      * 
      * @throws IOException If an I/O error occurs

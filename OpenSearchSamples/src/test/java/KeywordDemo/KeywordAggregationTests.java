@@ -50,7 +50,14 @@ public class KeywordAggregationTests {
 
     /**
      * This test verifies that keyword fields can be used for terms aggregation.
-     *
+     * 
+     * This function is used to define a keyword mapping for the Name of a product.
+     * OpenSearch documentation: https://opensearch.org/docs/2.0/opensearch/supported-field-types/keyword/
+     * ElasticSearch documentation is far richer in very similar detail: https://www.elastic.co/guide/en/elasticsearch/reference/current/keyword.html
+     * 
+     * Consider if you require eager global ordinals when using terms aggregations
+     * https://www.elastic.co/guide/en/elasticsearch/reference/current/eager-global-ordinals.html#_what_are_global_ordinals
+     * 
      * @throws IOException If an I/O error occurs
      */
     @Test

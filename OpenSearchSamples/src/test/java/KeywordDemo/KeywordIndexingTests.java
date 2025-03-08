@@ -44,6 +44,10 @@ public class KeywordIndexingTests {
 
     /**
      * This test verifies that keyword fields are indexed exactly as given, without tokenization.
+     * <p>
+     * This function is used to define a keyword mapping for the Name of a product.
+     * OpenSearch documentation: https://opensearch.org/docs/2.0/opensearch/supported-field-types/keyword/
+     * ElasticSearch documentation is far richer in very similar detail: https://www.elastic.co/guide/en/elasticsearch/reference/current/keyword.html
      *
      * @param termText    The text to index
      * @param explanation The explanation of the test case
@@ -56,7 +60,7 @@ public class KeywordIndexingTests {
             "'This is a sentence! It contains some, really bad. Grammar;', 'All grammar is indexed exactly as given'"
     })
     public void keywordMapping_IndexesASingleTokenForGivenString(String termText, String explanation) throws Exception {
-        // Create a test index with keyword mapping for the Name field
+        // Create a test index with keyword mapping for the name field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
                 mapping.properties("name", Property.of(p -> p.keyword(k -> k))))) {
 

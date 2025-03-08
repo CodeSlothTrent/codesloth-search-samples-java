@@ -48,11 +48,12 @@ public class TextTests {
 
     /**
      * This test verifies that text fields use the standard analyzer by default.
+     * 
      * Additional reading about text analysis can be found here: https://www.elastic.co/guide/en/elasticsearch/reference/current/analysis-overview.html
      * Additional reading about the standard analyzer can be found here: https://www.elastic.co/guide/en/elasticsearch/reference/current/analysis-standard-analyzer.html
      *
-     * @param text              The text to index
-     * @param expectedTokensCsv The expected tokens and frequencies
+     * @param text              The text to analyze
+     * @param expectedTokensCsv The expected tokens and frequencies as a CSV string
      * @param explanation       The explanation of the test case
      * @throws IOException If an I/O error occurs
      */
@@ -96,11 +97,12 @@ public class TextTests {
     /**
      * This test creates a new custom analyzer of type "standard" (the standard analyzer), which leverages its default tokenizers and token filters
      * and applies custom stop words which will not be tokenised.
+     * 
      * Read more about stop token filter here: https://www.elastic.co/guide/en/elasticsearch/reference/current/analysis-stop-tokenfilter.html
      *
-     * @param text              The text to index
-     * @param stopWordsStr      The stop words to configure
-     * @param expectedTokensCsv The expected tokens and frequencies
+     * @param text              The text to analyze
+     * @param stopWordsStr      The stop words to use
+     * @param expectedTokensCsv The expected tokens and frequencies as a CSV string
      * @param explanation       The explanation of the test case
      * @throws IOException If an I/O error occurs
      */
@@ -162,9 +164,9 @@ public class TextTests {
      * This test creates a new custom analyzer of type "standard" (the standard analyzer), which leverages its default tokenizers and token filters
      * and applies custom maximum token length.
      *
-     * @param text              The text to index
+     * @param text              The text to analyze
      * @param maxTokenLength    The maximum token length
-     * @param expectedTokensCsv The expected tokens and frequencies
+     * @param expectedTokensCsv The expected tokens and frequencies as a CSV string
      * @param explanation       The explanation of the test case
      * @throws IOException If an I/O error occurs
      */
@@ -221,9 +223,10 @@ public class TextTests {
     }
 
     /**
-     * This test performs a term query on text mapping to observe the results.
+     * Performs a term query on text mapping to observe the results.
      *
-     * @param text        The text to index and search for
+     * @param text        The text to search for
+     * @param isFound     Whether the text should be found
      * @param explanation The explanation of the test case
      * @throws IOException If an I/O error occurs
      */

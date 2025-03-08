@@ -41,6 +41,10 @@ public class KeywordScriptingTests {
 
     /**
      * This test verifies that keyword fields can be used to create a scripted field.
+     * 
+     * This function is used to define a keyword mapping for the Name of a product.
+     * OpenSearch documentation: https://opensearch.org/docs/2.0/opensearch/supported-field-types/keyword/
+     * ElasticSearch documentation is far richer in very similar detail: https://www.elastic.co/guide/en/elasticsearch/reference/current/keyword.html
      *
      * @throws IOException If an I/O error occurs
      */
