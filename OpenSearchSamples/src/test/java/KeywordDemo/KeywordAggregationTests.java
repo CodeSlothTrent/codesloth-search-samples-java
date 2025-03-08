@@ -239,10 +239,11 @@ public class KeywordAggregationTests {
             // Create a search request with field collapsing
             SearchRequest searchRequest = new SearchRequest.Builder()
                     .index(testIndex.getName())
+                    .query(query -> query.matchAll(new MatchAllQuery.Builder().build()))
                     .collapse(c -> c
                             .field("name")
                     )
-                    .sort(s -> s.field(f -> f.field("id").order(SortOrder.Desc)))
+                    .sort(s -> s.field(f -> f.field("rank").order(SortOrder.Desc)))
                     .from(0)
                     .build();
 
