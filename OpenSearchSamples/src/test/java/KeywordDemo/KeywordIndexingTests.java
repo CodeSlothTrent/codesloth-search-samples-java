@@ -78,6 +78,8 @@ public class KeywordIndexingTests {
             // Verify the results
             assertThat(result.found()).isTrue();
 
+            var resultString = result.toJsonString();
+
             // Extract tokens and their frequencies
             Map<String, TermVector> termVectors = result.termVectors();
             String tokensAndFrequency = termVectors.entrySet().stream()

@@ -12,8 +12,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.mapping.Property;
+import org.opensearch.client.opensearch._types.query_dsl.MatchAllQuery;
 import org.opensearch.client.opensearch.core.SearchRequest;
 import org.opensearch.client.opensearch.core.SearchResponse;
+import org.opensearch.client.opensearch.core.search.SourceFilter;
 
 import java.io.IOException;
 
@@ -41,7 +43,7 @@ public class KeywordScriptingTests {
 
     /**
      * This test verifies that keyword fields can be used to create a scripted field.
-     * 
+     * <p>
      * This function is used to define a keyword mapping for the Name of a product.
      * OpenSearch documentation: https://opensearch.org/docs/2.0/opensearch/supported-field-types/keyword/
      * ElasticSearch documentation is far richer in very similar detail: https://www.elastic.co/guide/en/elasticsearch/reference/current/keyword.html
@@ -71,6 +73,7 @@ public class KeywordScriptingTests {
                                     )
                             )
                     )
+                    .source(b -> b.filter(new SourceFilter.Builder().build()))
                     .build();
 
             // Execute the search request
@@ -84,16 +87,16 @@ public class KeywordScriptingTests {
             for (int i = 0; i < response.hits().hits().size(); i++) {
                 var hit = response.hits().hits().get(i);
                 var productDocument = hit.source();
-                var scriptedField = hit.fields().get("category");
+                String category = hit.fields().get("category").toString().replaceAll("[\\[\\]\"]", "");
 
-                assertThat(scriptedField).isNotNull();
+                assertThat(category).isNotNull();
 
                 if (i > 0) {
                     formattedResults.append(", ");
                 }
                 formattedResults.append(productDocument.getName())
                         .append(":")
-                        .append(scriptedField.toString()); //.get(0).toString());
+                        .append(category.toString()); //.get(0).toString());
             }
 
             // Verify the formatted results
@@ -115,8 +118,7 @@ public class KeywordScriptingTests {
             // Create and index product documents
             ProductDocument[] productDocuments = new ProductDocument[]{
                     new ProductDocument(1, "mouse", 1),
-                    new ProductDocument(2, "keyboard", 2),
-                    new ProductDocument(3, "monitor", 3)
+                    new ProductDocument(2, "mouse pad", 2)
             };
             testIndex.indexDocuments(productDocuments);
 
@@ -126,35 +128,37 @@ public class KeywordScriptingTests {
             // Create a search request with a script field using string interpolation
             SearchRequest searchRequest = new SearchRequest.Builder()
                     .index(testIndex.getName())
+                    .query(query -> query.matchAll(new MatchAllQuery.Builder().build()))
                     .scriptFields("category", sf -> sf
                             .script(s -> s
                                     .inline(i -> i
-                                            .source("doc['name'].value == '" + scriptedVariableValue + "' ? 'computer accessory' : 'other accessory'")
+                                            .source("doc['name'].value == '" + scriptedVariableValue + "' ? 'computer accessory' : 'mouse accessory'")
                                     )
                             )
                     )
+                    // The source field is omitted from results, so we must set an empty filter to fetch it
+                    .source(b -> b.filter(new SourceFilter.Builder().build()))
                     .build();
 
             // Execute the search request
-            SearchResponse<ProductDocument> response = openSearchClient.search(searchRequest, ProductDocument.class);
+            SearchResponse<ProductDocument> searchResponse = openSearchClient.search(searchRequest, ProductDocument.class);
 
             // Verify the results
-            assertThat(response.hits().hits()).hasSize(3);
+            assertThat(searchResponse.hits().total().value()).isEqualTo(2);
 
-            // Check that each document has the correct category based on the interpolated variable
-            for (int i = 0; i < response.hits().hits().size(); i++) {
-                var hit = response.hits().hits().get(i);
-                var productDocument = hit.source();
-                var scriptedField = hit.fields().get("category");
+            // Format the results for easier verification
+            StringBuilder formattedResults = new StringBuilder();
+            searchResponse.hits().hits().forEach(hit -> {
+                String name = hit.source().getName();
+                String category = hit.fields().get("category").toString().replaceAll("[\\[\\]\"]", "");
+                if (formattedResults.length() > 0) {
+                    formattedResults.append(", ");
+                }
+                formattedResults.append(name).append(":").append(category);
+            });
 
-                assertThat(scriptedField).isNotNull();
-
-                String expectedCategory = productDocument.getName().equals(scriptedVariableValue)
-                        ? "computer accessory"
-                        : "other accessory";
-
-                assertThat(scriptedField.toString()).isEqualTo(expectedCategory); //.get(0).toString()
-            }
+            // Verify the formatted results
+            assertThat(formattedResults.toString()).isEqualTo("mouse:computer accessory, mouse pad:mouse accessory");
         }
     }
 } 
