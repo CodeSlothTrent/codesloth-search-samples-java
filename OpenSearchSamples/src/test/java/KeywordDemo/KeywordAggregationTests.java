@@ -268,7 +268,7 @@ public class KeywordAggregationTests {
             "mouse.*, 'mouse:3, mouse pad:2', 'Prefix match - matches terms starting with mouse'",
             ".*pad, mouse pad:2, 'Suffix match - matches terms ending with pad'"
     })
-    public void keywordMapping_CanBeUsedForFilteredTermsAggregationOnSingleKeyword(String includesPattern, String expectedResults, String description) throws Exception {
+    public void keywordMapping_CanBeUsedForFilteredTermsAggregationOnSingleKeywordWithInclude(String includesPattern, String expectedResults, String description) throws Exception {
         // Create a test index with keyword mapping for the Name field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
                 mapping.properties("name", Property.of(p -> p.keyword(k -> k))))) {
@@ -324,11 +324,84 @@ public class KeywordAggregationTests {
     }
 
     /**
+     * This test verifies that keyword fields can be used for filtered terms aggregation with exclusion patterns.
+     * It demonstrates how to use the 'excludes' parameter to filter out terms based on a regex pattern.
+     *
+     * @param excludesPattern The regex pattern to exclude terms
+     * @param expectedResults The expected aggregation results in "term:count" format
+     * @param description     A description of what the test case is evaluating
+     * @throws Exception If an I/O error occurs
+     */
+    @ParameterizedTest
+    @CsvSource({
+            "mouse, mouse pad:2, 'Exact exclude - excludes exactly the term mouse'",
+            "mouse.*, '', 'Prefix exclude - excludes terms starting with mouse'",
+            ".*pad, mouse:3, 'Suffix exclude - excludes terms ending with pad'"
+    })
+    public void keywordMapping_CanBeUsedForFilteredTermsAggregationOnSingleKeywordWithExclude(String excludesPattern, String expectedResults, String description) throws Exception {
+        // Create a test index with keyword mapping for the Name field
+        try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
+                mapping.properties("name", Property.of(p -> p.keyword(k -> k))))) {
+
+            // Create and index product documents
+            ProductDocument[] productDocuments = new ProductDocument[]{
+                    new ProductDocument(1, "mouse", 1),
+                    new ProductDocument(2, "mouse pad", 2),
+                    new ProductDocument(3, "mouse", 3),
+                    new ProductDocument(4, "mouse", 4),
+                    new ProductDocument(5, "mouse pad", 5)
+            };
+            testIndex.indexDocuments(productDocuments);
+
+            // Create a search request with terms aggregation and excludes filter
+            SearchRequest searchRequest = new SearchRequest.Builder()
+                    .index(testIndex.getName())
+                    .size(0) // We do not want any documents returned; just the aggregations
+                    .aggregations("product_counts", a -> a
+                            .terms(t -> t
+                                    .field("name")
+                                    .size(10)
+                                    .exclude(e -> e.regexp(excludesPattern))
+                            )
+                    )
+                    .build();
+
+            // Execute the search request
+            SearchResponse<ProductDocument> response = openSearchClient.search(searchRequest, ProductDocument.class);
+
+            // Verify the results
+            assertThat(response.aggregations()).isNotNull();
+
+            StringTermsAggregate termsAgg = response.aggregations().get("product_counts").sterms();
+
+            // Extract each term and its associated number of hits
+            Map<String, Long> bucketCounts = termsAgg.buckets().array().stream()
+                    .collect(Collectors.toMap(
+                            StringTermsBucket::key,
+                            StringTermsBucket::docCount
+                    ));
+
+            // Format the results for verification
+            String formattedResults = bucketCounts.entrySet().stream()
+                    .map(entry -> entry.getKey() + ":" + entry.getValue())
+                    .collect(Collectors.joining(", "));
+
+            // Verify the expected results
+            assertThat(formattedResults)
+                    .as(description)
+                    .isEqualTo(expectedResults);
+        }
+    }
+
+    /**
      * This test verifies that arrays of keyword fields can be used for filtered terms aggregation.
      * It demonstrates how to use the 'includes' parameter to filter terms based on a regex pattern.
      * <p>
      * See {@link KeywordAggregationTests#keywordMapping_CanBeUsedForTermsAggregationOnKeywordArray} for the base case
      * that counts all elements across all document arrays without filtering.
+     * <p>
+     * See {@link KeywordAggregationTests#keywordMapping_TermsAggregationOnKeywordArrayCountsAllTermsWhenFiltered} for an example
+     * of how all terms in an array are counted in the aggregation even when documents are filtered by a query on one of those terms.
      *
      * @param includesPattern The regex pattern to include terms
      * @param expectedResults The expected aggregation results in "term:count" format
@@ -341,7 +414,7 @@ public class KeywordAggregationTests {
             "mouse.*, 'mouse:3, mouse pad:3', 'Prefix match - matches terms starting with mouse'",
             ".*pad, 'mouse pad:3, arm rest pad:1', 'Suffix match - matches terms ending with pad'",
     })
-    public void keywordMapping_CanBeUsedForFilteredTermsAggregationOnKeywordArray(String includesPattern, String expectedResults, String description) throws Exception {
+    public void keywordMapping_CanBeUsedForFilteredTermsAggregationOnKeywordArrayWithInclude(String includesPattern, String expectedResults, String description) throws Exception {
         // Create a test index with keyword mapping for the names array field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
                 mapping.properties("names", Property.of(p -> p.keyword(k -> k))))) {
@@ -365,6 +438,79 @@ public class KeywordAggregationTests {
                                     .field("names")
                                     .size(10)
                                     .include(i -> i.regexp(includesPattern))
+                            )
+                    )
+                    .build();
+
+            // Execute the search request
+            SearchResponse<ProductDocumentWithMultipleNames> response = openSearchClient.search(searchRequest, ProductDocumentWithMultipleNames.class);
+
+            // Verify the results
+            assertThat(response.aggregations()).isNotNull();
+
+            StringTermsAggregate termsAgg = response.aggregations().get("product_counts").sterms();
+
+            // Extract each term and its associated number of hits
+            Map<String, Long> bucketCounts = termsAgg.buckets().array().stream()
+                    .collect(Collectors.toMap(
+                            StringTermsBucket::key,
+                            StringTermsBucket::docCount
+                    ));
+
+            // Format the results for verification
+            String formattedResults = bucketCounts.entrySet().stream()
+                    .map(entry -> entry.getKey() + ":" + entry.getValue())
+                    .collect(Collectors.joining(", "));
+
+            // Verify the expected results
+            assertThat(formattedResults)
+                    .as(description)
+                    .isEqualTo(expectedResults);
+        }
+    }
+
+    /**
+     * This test verifies that arrays of keyword fields can be used for filtered terms aggregation with exclusion patterns.
+     * It demonstrates how to use the 'excludes' parameter to filter out terms based on a regex pattern.
+     * <p>
+     * This test complements {@link KeywordAggregationTests#keywordMapping_CanBeUsedForFilteredTermsAggregationOnKeywordArrayWithInclude}
+     * by showing how to exclude terms rather than include them.
+     *
+     * @param excludesPattern The regex pattern to exclude terms
+     * @param expectedResults The expected aggregation results in "term:count" format
+     * @param description     A description of what the test case is evaluating
+     * @throws Exception If an I/O error occurs
+     */
+    @ParameterizedTest
+    @CsvSource({
+            "mouse, 'computer:1, mouse pad:3, power cable:1, arm rest pad:1', 'Exact exclude - excludes exactly the term mouse'",
+            "mouse.*, 'computer:1, power cable:1, arm rest pad:1', 'Prefix exclude - excludes terms starting with mouse'",
+            ".*pad, 'mouse:3, computer:1, power cable:1', 'Suffix exclude - excludes terms ending with pad'"
+    })
+    public void keywordMapping_CanBeUsedForFilteredTermsAggregationOnKeywordArrayWithExclude(String excludesPattern, String expectedResults, String description) throws Exception {
+        // Create a test index with keyword mapping for the names array field
+        try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
+                mapping.properties("names", Property.of(p -> p.keyword(k -> k))))) {
+
+            // Create and index product documents with array of names
+            ProductDocumentWithMultipleNames[] productDocuments = new ProductDocumentWithMultipleNames[]{
+                    new ProductDocumentWithMultipleNames(1, new String[]{"mouse", "computer"}, 1),
+                    new ProductDocumentWithMultipleNames(2, new String[]{"mouse pad", "power cable"}, 2),
+                    new ProductDocumentWithMultipleNames(3, new String[]{"mouse", "mouse pad"}, 3),
+                    new ProductDocumentWithMultipleNames(4, new String[]{"mouse", "arm rest pad"}, 4),
+                    new ProductDocumentWithMultipleNames(5, new String[]{"mouse pad"}, 5)
+            };
+            testIndex.indexDocuments(productDocuments);
+
+            // Create a search request with terms aggregation and excludes filter
+            SearchRequest searchRequest = new SearchRequest.Builder()
+                    .index(testIndex.getName())
+                    .size(0) // We do not want any documents returned; just the aggregations
+                    .aggregations("product_counts", a -> a
+                            .terms(t -> t
+                                    .field("names")
+                                    .size(10)
+                                    .exclude(e -> e.regexp(excludesPattern))
                             )
                     )
                     .build();
