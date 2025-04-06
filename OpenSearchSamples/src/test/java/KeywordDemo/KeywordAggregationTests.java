@@ -354,17 +354,21 @@ public class KeywordAggregationTests {
      * Unlike the regex version, this approach allows exact matching of specific terms without
      * the complexity of regular expressions.
      *
+     * @param includeTerms    Array of terms to include in the aggregation
      * @param expectedResults The expected aggregation results in "term:count" format
      * @param description     A description of what the test case is evaluating
      * @throws Exception If an I/O error occurs
      */
     @ParameterizedTest
     @CsvSource({
-            "'mouse:3', 'Include only mouse - filters out mouse pad'",
-            "'mouse pad:2', 'Include only mouse pad - filters out mouse'",
-            "'mouse:3, mouse pad:2', 'Include both terms - shows all terms'"
+            "mouse, mouse:3, 'Include only mouse - filters out mouse pad'",
+            "mouse pad, mouse pad:2, 'Include only mouse pad - filters out mouse'",
+            "'mouse, mouse pad', 'mouse:3, mouse pad:2', 'Include both terms - shows all terms'"
     })
-    public void keywordMapping_CanBeUsedForFilteredTermsAggregation_OnSingleKeywordWithIncludeTerms(String expectedResults, String description) throws Exception {
+    public void keywordMapping_CanBeUsedForFilteredTermsAggregation_OnSingleKeywordWithIncludeTerms(
+            @ConvertWith(StringArrayConverter.class) String[] includeTerms, 
+            String expectedResults, 
+            String description) throws Exception {
         // Create a test index with keyword mapping for the Name field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
                 mapping.properties("name", Property.of(p -> p.keyword(k -> k))))) {
@@ -379,12 +383,6 @@ public class KeywordAggregationTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            // Parse the expected results to determine which terms to include
-            String[] terms = expectedResults.split(", ");
-            List<String> includeTerms = Arrays.stream(terms)
-                    .map(term -> term.split(":")[0])
-                    .collect(Collectors.toList());
-
             // Create a search request with terms aggregation and includes filter using explicit terms
             SearchRequest searchRequest = new SearchRequest.Builder()
                     .index(testIndex.getName())
@@ -393,7 +391,7 @@ public class KeywordAggregationTests {
                             .terms(t -> t
                                     .field("name")
                                     .size(10)
-                                    .include(i -> i.terms(includeTerms))
+                                    .include(i -> i.terms(Arrays.asList(includeTerms)))
                             )
                     )
                     .build();
