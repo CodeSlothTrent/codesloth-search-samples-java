@@ -26,6 +26,7 @@ import org.opensearch.client.opensearch.core.SearchRequest;
 import org.opensearch.client.opensearch.core.SearchResponse;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -418,7 +419,7 @@ public class KeywordAggregationTests {
             "mouse.*, '', 'Prefix exclude - excludes terms starting with mouse'",
             ".*pad, mouse:3, 'Suffix exclude - excludes terms ending with pad'"
     })
-    public void keywordMapping_CanBeUsedForFilteredTermsAggregationOnSingleKeywordWithExclude(String excludesPattern, String expectedResults, String description) throws Exception {
+    public void keywordMapping_CanBeUsedForFilteredTermsAggregationOnSingleKeywordWithExcludeRegularExpression(String excludesPattern, String expectedResults, String description) throws Exception {
         // Create a test index with keyword mapping for the Name field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
                 mapping.properties("name", Property.of(p -> p.keyword(k -> k))))) {
@@ -433,7 +434,7 @@ public class KeywordAggregationTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            // Create a search request with terms aggregation and excludes filter
+            // Create a search request with terms aggregation and excludes filter using regexp
             SearchRequest searchRequest = new SearchRequest.Builder()
                     .index(testIndex.getName())
                     .size(0) // We do not want any documents returned; just the aggregations
@@ -442,6 +443,82 @@ public class KeywordAggregationTests {
                                     .field("name")
                                     .size(10)
                                     .exclude(e -> e.regexp(excludesPattern))
+                            )
+                    )
+                    .build();
+
+            // Execute the search request
+            SearchResponse<ProductDocument> response = openSearchClient.search(searchRequest, ProductDocument.class);
+
+            // Verify the results
+            assertThat(response.aggregations()).isNotNull();
+
+            StringTermsAggregate termsAgg = response.aggregations().get("product_counts").sterms();
+
+            // Extract each term and its associated number of hits
+            Map<String, Long> bucketCounts = termsAgg.buckets().array().stream()
+                    .collect(Collectors.toMap(
+                            StringTermsBucket::key,
+                            StringTermsBucket::docCount
+                    ));
+
+            // Format the results for verification
+            String formattedResults = bucketCounts.entrySet().stream()
+                    .map(entry -> entry.getKey() + ":" + entry.getValue())
+                    .collect(Collectors.joining(", "));
+
+            // Verify the expected results
+            assertThat(formattedResults)
+                    .as(description)
+                    .isEqualTo(expectedResults);
+        }
+    }
+
+    /**
+     * This test verifies that keyword fields can be used for filtered terms aggregation with exclusion by specific terms.
+     * It demonstrates how to use the 'excludes' parameter with explicit term values to filter out terms.
+     * <p>
+     * Unlike the regex version, this approach allows exact exclusion of specific terms without
+     * the complexity of regular expressions.
+     *
+     * @param excludeTermsStr The comma-separated list of terms to exclude
+     * @param expectedResults The expected aggregation results in "term:count" format
+     * @param description     A description of what the test case is evaluating
+     * @throws Exception If an I/O error occurs
+     */
+    @ParameterizedTest
+    @CsvSource({
+            "mouse pad, mouse:3, 'Exclude mouse pad - only mouse remains'",
+            "mouse, mouse pad:2, 'Exclude mouse - only mouse pad remains'",
+            "'mouse, mouse pad', '', 'Exclude both terms - no results'"
+    })
+    public void keywordMapping_CanBeUsedForFilteredTermsAggregationOnSingleKeywordWithExcludeTerms(String excludeTermsStr, String expectedResults, String description) throws Exception {
+        // Create a test index with keyword mapping for the Name field
+        try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
+                mapping.properties("name", Property.of(p -> p.keyword(k -> k))))) {
+
+            // Create and index product documents
+            ProductDocument[] productDocuments = new ProductDocument[]{
+                    new ProductDocument(1, "mouse", 1),
+                    new ProductDocument(2, "mouse pad", 2),
+                    new ProductDocument(3, "mouse", 3),
+                    new ProductDocument(4, "mouse", 4),
+                    new ProductDocument(5, "mouse pad", 5)
+            };
+            testIndex.indexDocuments(productDocuments);
+
+            // Parse the exclude terms from the parameter
+            List<String> excludeTerms = Arrays.asList(excludeTermsStr.split("\\s*,\\s*"));
+
+            // Create a search request with terms aggregation and excludes filter using explicit terms
+            SearchRequest searchRequest = new SearchRequest.Builder()
+                    .index(testIndex.getName())
+                    .size(0) // We do not want any documents returned; just the aggregations
+                    .aggregations("product_counts", a -> a
+                            .terms(t -> t
+                                    .field("name")
+                                    .size(10)
+                                    .exclude(e -> e.terms(excludeTerms))
                             )
                     )
                     .build();
