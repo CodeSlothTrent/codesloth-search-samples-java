@@ -13,7 +13,11 @@ import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.ParameterContext;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.converter.ArgumentConversionException;
+import org.junit.jupiter.params.converter.ArgumentConverter;
+import org.junit.jupiter.params.converter.ConvertWith;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.FieldValue;
@@ -24,13 +28,8 @@ import org.opensearch.client.opensearch._types.query_dsl.MatchAllQuery;
 import org.opensearch.client.opensearch._types.query_dsl.Query;
 import org.opensearch.client.opensearch.core.SearchRequest;
 import org.opensearch.client.opensearch.core.SearchResponse;
-import org.junit.jupiter.api.extension.ParameterContext;
-import org.junit.jupiter.params.converter.ArgumentConversionException;
-import org.junit.jupiter.params.converter.ArgumentConverter;
-import org.junit.jupiter.params.converter.ConvertWith;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -293,7 +292,7 @@ public class KeywordAggregationTests {
             "mouse.*, 'mouse:3, mouse pad:2', 'Prefix match - matches terms starting with mouse'",
             ".*pad, mouse pad:2, 'Suffix match - matches terms ending with pad'"
     })
-    public void keywordMapping_CanBeUsedForFilteredTermsAggregationOnSingleKeywordWithIncludeRegularExpression(String includesPattern, String expectedResults, String description) throws Exception {
+    public void keywordMapping_CanBeUsedForFilteredTermsAggregation_OnSingleKeywordWithIncludeRegularExpression(String includesPattern, String expectedResults, String description) throws Exception {
         // Create a test index with keyword mapping for the Name field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
                 mapping.properties("name", Property.of(p -> p.keyword(k -> k))))) {
@@ -365,7 +364,7 @@ public class KeywordAggregationTests {
             "'mouse pad:2', 'Include only mouse pad - filters out mouse'",
             "'mouse:3, mouse pad:2', 'Include both terms - shows all terms'"
     })
-    public void keywordMapping_CanBeUsedForFilteredTermsAggregationOnSingleKeywordWithIncludeTerms(String expectedResults, String description) throws Exception {
+    public void keywordMapping_CanBeUsedForFilteredTermsAggregation_OnSingleKeywordWithIncludeTerms(String expectedResults, String description) throws Exception {
         // Create a test index with keyword mapping for the Name field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
                 mapping.properties("name", Property.of(p -> p.keyword(k -> k))))) {
@@ -441,7 +440,7 @@ public class KeywordAggregationTests {
             "mouse.*, '', 'Prefix exclude - excludes terms starting with mouse'",
             ".*pad, mouse:3, 'Suffix exclude - excludes terms ending with pad'"
     })
-    public void keywordMapping_CanBeUsedForFilteredTermsAggregationOnSingleKeywordWithExcludeRegularExpression(String excludesPattern, String expectedResults, String description) throws Exception {
+    public void keywordMapping_CanBeUsedForFilteredTermsAggregation_OnSingleKeywordWithExcludeRegularExpression(String excludesPattern, String expectedResults, String description) throws Exception {
         // Create a test index with keyword mapping for the Name field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
                 mapping.properties("name", Property.of(p -> p.keyword(k -> k))))) {
@@ -514,9 +513,9 @@ public class KeywordAggregationTests {
             "mouse, mouse pad:2, 'Exclude mouse - only mouse pad remains'",
             "'mouse, mouse pad', '', 'Exclude both terms - no results'"
     })
-    public void keywordMapping_CanBeUsedForFilteredTermsAggregationOnSingleKeywordWithExcludeTerms(
-            @ConvertWith(StringArrayConverter.class) String[] excludeTerms, 
-            String expectedResults, 
+    public void keywordMapping_CanBeUsedForFilteredTermsAggregation_OnSingleKeywordWithExcludeTerms(
+            @ConvertWith(StringArrayConverter.class) String[] excludeTerms,
+            String expectedResults,
             String description) throws Exception {
         // Create a test index with keyword mapping for the Name field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
@@ -593,7 +592,7 @@ public class KeywordAggregationTests {
             "mouse.*, 'mouse:3, mouse pad:3', 'Prefix match - matches terms starting with mouse'",
             ".*pad, 'mouse pad:3, arm rest pad:1', 'Suffix match - matches terms ending with pad'",
     })
-    public void keywordMapping_CanBeUsedForFilteredTermsAggregationOnKeywordArrayWithIncludeRegularExpression(String includesPattern, String expectedResults, String description) throws Exception {
+    public void keywordMapping_CanBeUsedForFilteredTermsAggregation_OnKeywordArrayWithIncludeRegularExpression(String includesPattern, String expectedResults, String description) throws Exception {
         // Create a test index with keyword mapping for the names array field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
                 mapping.properties("names", Property.of(p -> p.keyword(k -> k))))) {
@@ -658,21 +657,21 @@ public class KeywordAggregationTests {
      * See {@link KeywordAggregationTests#keywordMapping_CanBeUsedForTermsAggregationOnKeywordArray} for the base case
      * that counts all elements across all document arrays without filtering.
      *
-     * @param includeTerms     Array of terms to include in the aggregation
-     * @param expectedResults  The expected aggregation results in "term:count" format
-     * @param description      A description of what the test case is evaluating
+     * @param includeTerms    Array of terms to include in the aggregation
+     * @param expectedResults The expected aggregation results in "term:count" format
+     * @param description     A description of what the test case is evaluating
      * @throws Exception If an I/O error occurs
      */
     @ParameterizedTest
     @CsvSource({
-            "mouse, mouse:3, 'Include only mouse - matches exact term'", 
+            "mouse, mouse:3, 'Include only mouse - matches exact term'",
             "mouse pad, mouse pad:3, 'Include only mouse pad - matches exact term'",
             "'mouse, mouse pad', 'mouse:3, mouse pad:3', 'Include mouse terms - matches both terms'",
             "'mouse, computer', 'mouse:3, computer:1', 'Include mixed terms - matches one common and one rare term'"
     })
-    public void keywordMapping_CanBeUsedForFilteredTermsAggregationOnKeywordArrayWithIncludeTerms(
-            @ConvertWith(StringArrayConverter.class) String[] includeTerms, 
-            String expectedResults, 
+    public void keywordMapping_CanBeUsedForFilteredTermsAggregation_OnKeywordArrayWithIncludeTerms(
+            @ConvertWith(StringArrayConverter.class) String[] includeTerms,
+            String expectedResults,
             String description) throws Exception {
         // Create a test index with keyword mapping for the names array field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
@@ -734,7 +733,7 @@ public class KeywordAggregationTests {
      * This test verifies that arrays of keyword fields can be used for filtered terms aggregation with exclusion patterns.
      * It demonstrates how to use the 'excludes' parameter to filter out terms based on a regex pattern.
      * <p>
-     * This test complements {@link KeywordAggregationTests#keywordMapping_CanBeUsedForFilteredTermsAggregationOnKeywordArrayWithIncludeRegularExpression}
+     * This test complements {@link KeywordAggregationTests#keywordMapping_CanBeUsedForFilteredTermsAggregation_OnKeywordArrayWithIncludeRegularExpression}
      * by showing how to exclude terms rather than include them.
      *
      * @param excludesPattern The regex pattern to exclude terms
@@ -748,7 +747,7 @@ public class KeywordAggregationTests {
             "mouse.*, 'computer:1, power cable:1, arm rest pad:1', 'Prefix exclude - excludes terms starting with mouse'",
             ".*pad, 'mouse:3, computer:1, power cable:1', 'Suffix exclude - excludes terms ending with pad'"
     })
-    public void keywordMapping_CanBeUsedForFilteredTermsAggregationOnKeywordArrayWithExcludeRegularExpression(String excludesPattern, String expectedResults, String description) throws Exception {
+    public void keywordMapping_CanBeUsedForFilteredTermsAggregation_OnKeywordArrayWithExcludeRegularExpression(String excludesPattern, String expectedResults, String description) throws Exception {
         // Create a test index with keyword mapping for the names array field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
                 mapping.properties("names", Property.of(p -> p.keyword(k -> k))))) {
@@ -804,13 +803,13 @@ public class KeywordAggregationTests {
     }
 
     /**
-     * This test verifies that arrays of keyword fields can be used for filtered terms aggregation 
+     * This test verifies that arrays of keyword fields can be used for filtered terms aggregation
      * with exclusion by specific terms.
      * <p>
      * Unlike the regex version, this approach allows exact exclusion of specific terms without
      * the complexity of regular expressions.
      * <p>
-     * This test complements {@link KeywordAggregationTests#keywordMapping_CanBeUsedForFilteredTermsAggregationOnKeywordArrayWithIncludeTerms}
+     * This test complements {@link KeywordAggregationTests#keywordMapping_CanBeUsedForFilteredTermsAggregation_OnKeywordArrayWithIncludeTerms}
      * by showing how to exclude terms rather than include them.
      *
      * @param excludeTerms    Array of terms to exclude from the aggregation
@@ -824,9 +823,9 @@ public class KeywordAggregationTests {
             "'mouse, mouse pad', 'computer:1, power cable:1, arm rest pad:1', 'Exclude mouse terms - returns remaining terms'",
             "'mouse, computer, mouse pad, power cable, arm rest pad', '', 'Exclude all terms - no results'"
     })
-    public void keywordMapping_CanBeUsedForFilteredTermsAggregationOnKeywordArrayWithExcludeTerms(
-            @ConvertWith(StringArrayConverter.class) String[] excludeTerms, 
-            String expectedResults, 
+    public void keywordMapping_CanBeUsedForFilteredTermsAggregation_OnKeywordArrayWithExcludeTerms(
+            @ConvertWith(StringArrayConverter.class) String[] excludeTerms,
+            String expectedResults,
             String description) throws Exception {
         // Create a test index with keyword mapping for the names array field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
