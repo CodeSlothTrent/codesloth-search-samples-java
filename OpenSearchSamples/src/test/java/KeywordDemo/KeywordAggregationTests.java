@@ -31,7 +31,6 @@ import org.opensearch.client.opensearch.core.SearchResponse;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -290,7 +289,8 @@ public class KeywordAggregationTests {
     @CsvSource({
             "mouse, mouse:3, 'Exact match - matches only the exact term'",
             "mouse.*, 'mouse:3, mouse pad:2', 'Prefix match - matches terms starting with mouse'",
-            ".*pad, mouse pad:2, 'Suffix match - matches terms ending with pad'"
+            ".*pad, mouse pad:2, 'Suffix match - matches terms ending with pad'",
+            "keyboard, '', 'No matches - pattern matches no terms'"
     })
     public void keywordMapping_CanBeUsedForFilteredTermsAggregation_OnSingleKeywordWithIncludeRegularExpression(String includesPattern, String expectedResults, String description) throws Exception {
         // Create a test index with keyword mapping for the Name field
@@ -363,11 +363,12 @@ public class KeywordAggregationTests {
     @CsvSource({
             "mouse, mouse:3, 'Include only mouse - filters out mouse pad'",
             "mouse pad, mouse pad:2, 'Include only mouse pad - filters out mouse'",
-            "'mouse, mouse pad', 'mouse:3, mouse pad:2', 'Include both terms - shows all terms'"
+            "'mouse, mouse pad', 'mouse:3, mouse pad:2', 'Include both terms - shows all terms'",
+            "keyboard, '', 'Include non-existent term - no results'"
     })
     public void keywordMapping_CanBeUsedForFilteredTermsAggregation_OnSingleKeywordWithIncludeTerms(
-            @ConvertWith(StringArrayConverter.class) String[] includeTerms, 
-            String expectedResults, 
+            @ConvertWith(StringArrayConverter.class) String[] includeTerms,
+            String expectedResults,
             String description) throws Exception {
         // Create a test index with keyword mapping for the Name field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
@@ -665,7 +666,8 @@ public class KeywordAggregationTests {
             "mouse, mouse:3, 'Include only mouse - matches exact term'",
             "mouse pad, mouse pad:3, 'Include only mouse pad - matches exact term'",
             "'mouse, mouse pad', 'mouse:3, mouse pad:3', 'Include mouse terms - matches both terms'",
-            "'mouse, computer', 'mouse:3, computer:1', 'Include mixed terms - matches one common and one rare term'"
+            "'mouse, computer', 'mouse:3, computer:1', 'Include mixed terms - matches one common and one rare term'",
+            "keyboard, '', 'Include non-existent term - no results'"
     })
     public void keywordMapping_CanBeUsedForFilteredTermsAggregation_OnKeywordArrayWithIncludeTerms(
             @ConvertWith(StringArrayConverter.class) String[] includeTerms,
@@ -743,7 +745,8 @@ public class KeywordAggregationTests {
     @CsvSource({
             "mouse, 'computer:1, mouse pad:3, power cable:1, arm rest pad:1', 'Exact exclude - excludes exactly the term mouse'",
             "mouse.*, 'computer:1, power cable:1, arm rest pad:1', 'Prefix exclude - excludes terms starting with mouse'",
-            ".*pad, 'mouse:3, computer:1, power cable:1', 'Suffix exclude - excludes terms ending with pad'"
+            ".*pad, 'mouse:3, computer:1, power cable:1', 'Suffix exclude - excludes terms ending with pad'",
+            "'.*ouse.*|.*pad.*|.*ower.*|.*omputer.*|.*rest.*', '', 'Exclude all patterns - no results'"
     })
     public void keywordMapping_CanBeUsedForFilteredTermsAggregation_OnKeywordArrayWithExcludeRegularExpression(String excludesPattern, String expectedResults, String description) throws Exception {
         // Create a test index with keyword mapping for the names array field
