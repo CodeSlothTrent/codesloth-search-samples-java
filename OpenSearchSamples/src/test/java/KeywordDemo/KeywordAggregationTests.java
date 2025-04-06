@@ -26,6 +26,8 @@ import org.opensearch.client.opensearch.core.SearchRequest;
 import org.opensearch.client.opensearch.core.SearchResponse;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -255,7 +257,7 @@ public class KeywordAggregationTests {
 
     /**
      * This test verifies that keyword fields can be used for filtered terms aggregation.
-     * It demonstrates how to use the 'includes' parameter to filter terms based on a regex pattern.
+     * It demonstrates how to use the 'includes' parameter with regex patterns to filter terms.
      *
      * @param includesPattern The regex pattern to include terms
      * @param expectedResults The expected aggregation results in "term:count" format
@@ -268,7 +270,7 @@ public class KeywordAggregationTests {
             "mouse.*, 'mouse:3, mouse pad:2', 'Prefix match - matches terms starting with mouse'",
             ".*pad, mouse pad:2, 'Suffix match - matches terms ending with pad'"
     })
-    public void keywordMapping_CanBeUsedForFilteredTermsAggregationOnSingleKeywordWithInclude(String includesPattern, String expectedResults, String description) throws Exception {
+    public void keywordMapping_CanBeUsedForFilteredTermsAggregationOnSingleKeywordWithIncludeRegularExpression(String includesPattern, String expectedResults, String description) throws Exception {
         // Create a test index with keyword mapping for the Name field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
                 mapping.properties("name", Property.of(p -> p.keyword(k -> k))))) {
@@ -283,7 +285,7 @@ public class KeywordAggregationTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            // Create a search request with terms aggregation and includes filter
+            // Create a search request with terms aggregation and includes filter using regexp
             SearchRequest searchRequest = new SearchRequest.Builder()
                     .index(testIndex.getName())
                     .size(0) // We do not want any documents returned; just the aggregations
@@ -292,6 +294,84 @@ public class KeywordAggregationTests {
                                     .field("name")
                                     .size(10)
                                     .include(i -> i.regexp(includesPattern))
+                            )
+                    )
+                    .build();
+
+            // Execute the search request
+            SearchResponse<ProductDocument> response = openSearchClient.search(searchRequest, ProductDocument.class);
+
+            // Verify the results
+            assertThat(response.aggregations()).isNotNull();
+
+            StringTermsAggregate termsAgg = response.aggregations().get("product_counts").sterms();
+
+            // Extract each term and its associated number of hits
+            Map<String, Long> bucketCounts = termsAgg.buckets().array().stream()
+                    .collect(Collectors.toMap(
+                            StringTermsBucket::key,
+                            StringTermsBucket::docCount
+                    ));
+
+            // Format the results for verification
+            String formattedResults = bucketCounts.entrySet().stream()
+                    .map(entry -> entry.getKey() + ":" + entry.getValue())
+                    .collect(Collectors.joining(", "));
+
+            // Verify the expected results
+            assertThat(formattedResults)
+                    .as(description)
+                    .isEqualTo(expectedResults);
+        }
+    }
+
+    /**
+     * This test verifies that keyword fields can be used for filtered terms aggregation.
+     * It demonstrates how to use the 'includes' parameter with explicit term values to filter terms.
+     * <p>
+     * Unlike the regex version, this approach allows exact matching of specific terms without
+     * the complexity of regular expressions.
+     *
+     * @param expectedResults The expected aggregation results in "term:count" format
+     * @param description     A description of what the test case is evaluating
+     * @throws Exception If an I/O error occurs
+     */
+    @ParameterizedTest
+    @CsvSource({
+            "'mouse:3', 'Include only mouse - filters out mouse pad'",
+            "'mouse pad:2', 'Include only mouse pad - filters out mouse'",
+            "'mouse:3, mouse pad:2', 'Include both terms - shows all terms'"
+    })
+    public void keywordMapping_CanBeUsedForFilteredTermsAggregationOnSingleKeywordWithIncludeTerms(String expectedResults, String description) throws Exception {
+        // Create a test index with keyword mapping for the Name field
+        try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
+                mapping.properties("name", Property.of(p -> p.keyword(k -> k))))) {
+
+            // Create and index product documents
+            ProductDocument[] productDocuments = new ProductDocument[]{
+                    new ProductDocument(1, "mouse", 1),
+                    new ProductDocument(2, "mouse pad", 2),
+                    new ProductDocument(3, "mouse", 3),
+                    new ProductDocument(4, "mouse", 4),
+                    new ProductDocument(5, "mouse pad", 5)
+            };
+            testIndex.indexDocuments(productDocuments);
+
+            // Parse the expected results to determine which terms to include
+            String[] terms = expectedResults.split(", ");
+            List<String> includeTerms = Arrays.stream(terms)
+                    .map(term -> term.split(":")[0])
+                    .collect(Collectors.toList());
+
+            // Create a search request with terms aggregation and includes filter using explicit terms
+            SearchRequest searchRequest = new SearchRequest.Builder()
+                    .index(testIndex.getName())
+                    .size(0) // We do not want any documents returned; just the aggregations
+                    .aggregations("product_counts", a -> a
+                            .terms(t -> t
+                                    .field("name")
+                                    .size(10)
+                                    .include(i -> i.terms(includeTerms))
                             )
                     )
                     .build();
