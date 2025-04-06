@@ -590,6 +590,8 @@ public class KeywordAggregationTests {
             "mouse, mouse:3, 'Exact match - matches only the exact term'",
             "mouse.*, 'mouse:3, mouse pad:3', 'Prefix match - matches terms starting with mouse'",
             ".*pad, 'mouse pad:3, arm rest pad:1', 'Suffix match - matches terms ending with pad'",
+            "keyboard, '', 'No matches - pattern matches no terms'",
+            "'.*', 'mouse:3, computer:1, mouse pad:3, power cable:1, arm rest pad:1', 'Match all - pattern matches all terms'"
     })
     public void keywordMapping_CanBeUsedForFilteredTermsAggregation_OnKeywordArrayWithIncludeRegularExpression(String includesPattern, String expectedResults, String description) throws Exception {
         // Create a test index with keyword mapping for the names array field
@@ -822,7 +824,8 @@ public class KeywordAggregationTests {
     @CsvSource({
             "mouse, 'computer:1, mouse pad:3, power cable:1, arm rest pad:1', 'Exclude mouse - returns all other terms'",
             "'mouse, mouse pad', 'computer:1, power cable:1, arm rest pad:1', 'Exclude mouse terms - returns remaining terms'",
-            "'mouse, computer, mouse pad, power cable, arm rest pad', '', 'Exclude all terms - no results'"
+            "'mouse, computer, mouse pad, power cable, arm rest pad', '', 'Exclude all terms - no results'",
+            "keyboard, 'mouse:3, computer:1, mouse pad:3, power cable:1, arm rest pad:1', 'Exclude non-existent term - all terms appear'"
     })
     public void keywordMapping_CanBeUsedForFilteredTermsAggregation_OnKeywordArrayWithExcludeTerms(
             @ConvertWith(StringArrayConverter.class) String[] excludeTerms,
