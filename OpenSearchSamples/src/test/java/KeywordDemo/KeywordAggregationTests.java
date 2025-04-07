@@ -155,6 +155,7 @@ public class KeywordAggregationTests {
                 // First parameter: Mapping configuration
                 mapping -> mapping.properties("name", Property.of(p -> p.keyword(k -> k
                         .normalizer("lowercase_normalizer")
+                        .norms(false)
                 ))),
                 // Second parameter: Settings configuration with the normalizer
                 settings -> settings.analysis(a -> a
