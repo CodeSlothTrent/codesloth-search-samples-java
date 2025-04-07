@@ -140,6 +140,81 @@ public class KeywordAggregationTests {
     }
 
     /**
+     * This test verifies that keyword fields with a normalizer can be used for terms aggregation.
+     * <p>
+     * Using a lowercase normalizer with a keyword field provides case-insensitive exact matching
+     * without the tokenization behavior of text fields. This is more efficient than using
+     * a text field with a custom analyzer when you need exact matching with case normalization.
+     *
+     * @throws IOException If an I/O error occurs
+     */
+    @Test
+    public void keywordMapping_CanBeUsedForTermsAggregationOnSingleKeywordWithNormalizer() throws Exception {
+        // Create a test index with keyword mapping and a lowercase normalizer for the Name field
+        try (OpenSearchTestIndex testIndex = fixture.createTestIndex(
+                // First parameter: Mapping configuration
+                mapping -> mapping.properties("name", Property.of(p -> p.keyword(k -> k
+                        .normalizer("lowercase_normalizer")
+                ))),
+                // Second parameter: Settings configuration with the normalizer
+                settings -> settings.analysis(a -> a
+                        .normalizer("lowercase_normalizer", normalizer -> normalizer
+                                .custom(c -> c
+                                        .filter("lowercase")
+                                )
+                        )
+                )
+        )) {
+
+            // Create and index product documents
+            ProductDocument[] productDocuments = new ProductDocument[]{
+                    new ProductDocument(1, "Mouse", 1),  // Capital M to test lowercase normalizer
+                    new ProductDocument(2, "mouse pad", 2),
+                    new ProductDocument(3, "MOUSE", 3),  // All caps to test lowercase normalizer
+                    new ProductDocument(4, "mouse", 4),
+                    new ProductDocument(5, "Mouse Pad", 5)  // Mixed case to test lowercase normalizer
+            };
+            testIndex.indexDocuments(productDocuments);
+
+            // Create a search request with terms aggregation
+            SearchRequest searchRequest = new SearchRequest.Builder()
+                    .index(testIndex.getName())
+                    .size(0) // We do not want any documents returned; just the aggregations
+                    .aggregations("product_counts", a -> a
+                            .terms(t -> t
+                                    .field("name")
+                                    .size(10)
+                            )
+                    )
+                    .build();
+
+            // Execute the search request
+            SearchResponse<ProductDocument> response = openSearchClient.search(searchRequest, ProductDocument.class);
+
+            // Verify the results
+            assertThat(response.aggregations()).isNotNull();
+
+            StringTermsAggregate termsAgg = response.aggregations().get("product_counts").sterms();
+
+            // Extract each term and its associated number of hits
+            Map<String, Long> bucketCounts = termsAgg.buckets().array().stream()
+                    .collect(Collectors.toMap(
+                            StringTermsBucket::key,
+                            StringTermsBucket::docCount
+                    ));
+
+            // Format the results for verification
+            String formattedResults = bucketCounts.entrySet().stream()
+                    .map(entry -> entry.getKey() + ":" + entry.getValue())
+                    .collect(Collectors.joining(", "));
+
+            // Verify the expected results
+            // Note: All terms should be lowercase due to the normalizer regardless of original case
+            assertThat(formattedResults).isEqualTo("mouse:3, mouse pad:2");
+        }
+    }
+
+    /**
      * This test verifies that arrays of keyword fields can be used for terms aggregation.
      * <p>
      * This function demonstrates how to define a keyword mapping for an array of product names
