@@ -13,12 +13,10 @@ import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.api.extension.ParameterContext;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.converter.ArgumentConversionException;
-import org.junit.jupiter.params.converter.ArgumentConverter;
-import org.junit.jupiter.params.converter.ConvertWith;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.FieldValue;
 import org.opensearch.client.opensearch._types.SortOrder;
@@ -33,26 +31,9 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
-
-/**
- * Custom converter for string arrays in parameterized tests.
- * Converts a comma-separated string into a String array.
- */
-class StringArrayConverter implements ArgumentConverter {
-    @Override
-    public Object convert(Object source, ParameterContext context) throws ArgumentConversionException {
-        if (source == null) {
-            return new String[0];
-        }
-        String sourceString = (String) source;
-        if (sourceString.isEmpty()) {
-            return new String[0];
-        }
-        return sourceString.split("\\s*,\\s*");
-    }
-}
 
 /**
  * Tests for keyword field aggregations in OpenSearch.
@@ -436,14 +417,9 @@ public class KeywordAggregationTests {
      * @throws Exception If an I/O error occurs
      */
     @ParameterizedTest
-    @CsvSource({
-            "mouse, mouse:3, 'Include only mouse - filters out mouse pad'",
-            "mouse pad, mouse pad:2, 'Include only mouse pad - filters out mouse'",
-            "'mouse, mouse pad', 'mouse:3, mouse pad:2', 'Include both terms - shows all terms'",
-            "keyboard, '', 'Include non-existent term - no results'"
-    })
+    @MethodSource("provideIncludeTermsTestData")
     public void keywordMapping_CanBeUsedForFilteredTermsAggregation_OnSingleKeywordWithIncludeTerms(
-            @ConvertWith(StringArrayConverter.class) String[] includeTerms,
+            String[] includeTerms,
             String expectedResults,
             String description) throws Exception {
         // Create a test index with keyword mapping for the Name field
@@ -498,6 +474,15 @@ public class KeywordAggregationTests {
                     .as(description)
                     .isEqualTo(expectedResults);
         }
+    }
+
+    private static Stream<Arguments> provideIncludeTermsTestData() {
+        return Stream.of(
+                Arguments.of(new String[]{"mouse"}, "mouse:3", "Include only mouse - filters out mouse pad"),
+                Arguments.of(new String[]{"mouse pad"}, "mouse pad:2", "Include only mouse pad - filters out mouse"),
+                Arguments.of(new String[]{"mouse", "mouse pad"}, "mouse:3, mouse pad:2", "Include both terms - shows all terms"),
+                Arguments.of(new String[]{"keyboard"}, "", "Include non-existent term - no results")
+        );
     }
 
     /**
@@ -583,13 +568,9 @@ public class KeywordAggregationTests {
      * @throws Exception If an I/O error occurs
      */
     @ParameterizedTest
-    @CsvSource({
-            "mouse pad, mouse:3, 'Exclude mouse pad - only mouse remains'",
-            "mouse, mouse pad:2, 'Exclude mouse - only mouse pad remains'",
-            "'mouse, mouse pad', '', 'Exclude both terms - no results'"
-    })
+    @MethodSource("provideExcludeTermsTestData")
     public void keywordMapping_CanBeUsedForFilteredTermsAggregation_OnSingleKeywordWithExcludeTerms(
-            @ConvertWith(StringArrayConverter.class) String[] excludeTerms,
+            String[] excludeTerms,
             String expectedResults,
             String description) throws Exception {
         // Create a test index with keyword mapping for the Name field
@@ -644,6 +625,14 @@ public class KeywordAggregationTests {
                     .as(description)
                     .isEqualTo(expectedResults);
         }
+    }
+
+    private static Stream<Arguments> provideExcludeTermsTestData() {
+        return Stream.of(
+                Arguments.of(new String[]{"mouse pad"}, "mouse:3", "Exclude mouse pad - only mouse remains"),
+                Arguments.of(new String[]{"mouse"}, "mouse pad:2", "Exclude mouse - only mouse pad remains"),
+                Arguments.of(new String[]{"mouse", "mouse pad"}, "", "Exclude both terms - no results")
+        );
     }
 
     /**
@@ -740,15 +729,9 @@ public class KeywordAggregationTests {
      * @throws Exception If an I/O error occurs
      */
     @ParameterizedTest
-    @CsvSource({
-            "mouse, mouse:3, 'Include only mouse - matches exact term'",
-            "mouse pad, mouse pad:3, 'Include only mouse pad - matches exact term'",
-            "'mouse, mouse pad', 'mouse:3, mouse pad:3', 'Include mouse terms - matches both terms'",
-            "'mouse, computer', 'mouse:3, computer:1', 'Include mixed terms - matches one common and one rare term'",
-            "keyboard, '', 'Include non-existent term - no results'"
-    })
+    @MethodSource("provideIncludeTermsArrayTestData")
     public void keywordMapping_CanBeUsedForFilteredTermsAggregation_OnKeywordArrayWithIncludeTerms(
-            @ConvertWith(StringArrayConverter.class) String[] includeTerms,
+            String[] includeTerms,
             String expectedResults,
             String description) throws Exception {
         // Create a test index with keyword mapping for the names array field
@@ -805,6 +788,16 @@ public class KeywordAggregationTests {
                     .as(description)
                     .isEqualTo(expectedResults);
         }
+    }
+
+    private static Stream<Arguments> provideIncludeTermsArrayTestData() {
+        return Stream.of(
+                Arguments.of(new String[]{"mouse"}, "mouse:3", "Include only mouse - matches exact term"),
+                Arguments.of(new String[]{"mouse pad"}, "mouse pad:3", "Include only mouse pad - matches exact term"),
+                Arguments.of(new String[]{"mouse", "mouse pad"}, "mouse:3, mouse pad:3", "Include mouse terms - matches both terms"),
+                Arguments.of(new String[]{"mouse", "computer"}, "mouse:3, computer:1", "Include mixed terms - matches one common and one rare term"),
+                Arguments.of(new String[]{"keyboard"}, "", "Include non-existent term - no results")
+        );
     }
 
     /**
@@ -897,14 +890,9 @@ public class KeywordAggregationTests {
      * @throws Exception If an I/O error occurs
      */
     @ParameterizedTest
-    @CsvSource({
-            "mouse, 'computer:1, mouse pad:3, power cable:1, arm rest pad:1', 'Exclude mouse - returns all other terms'",
-            "'mouse, mouse pad', 'computer:1, power cable:1, arm rest pad:1', 'Exclude mouse terms - returns remaining terms'",
-            "'mouse, computer, mouse pad, power cable, arm rest pad', '', 'Exclude all terms - no results'",
-            "keyboard, 'mouse:3, computer:1, mouse pad:3, power cable:1, arm rest pad:1', 'Exclude non-existent term - all terms appear'"
-    })
+    @MethodSource("provideExcludeTermsArrayTestData")
     public void keywordMapping_CanBeUsedForFilteredTermsAggregation_OnKeywordArrayWithExcludeTerms(
-            @ConvertWith(StringArrayConverter.class) String[] excludeTerms,
+            String[] excludeTerms,
             String expectedResults,
             String description) throws Exception {
         // Create a test index with keyword mapping for the names array field
@@ -959,6 +947,15 @@ public class KeywordAggregationTests {
                     .as(description)
                     .isEqualTo(expectedResults);
         }
+    }
+
+    private static Stream<Arguments> provideExcludeTermsArrayTestData() {
+        return Stream.of(
+                Arguments.of(new String[]{"mouse"}, "computer:1, mouse pad:3, power cable:1, arm rest pad:1", "Exclude mouse - returns all other terms"),
+                Arguments.of(new String[]{"mouse", "mouse pad"}, "computer:1, power cable:1, arm rest pad:1", "Exclude mouse terms - returns remaining terms"),
+                Arguments.of(new String[]{"mouse", "computer", "mouse pad", "power cable", "arm rest pad"}, "", "Exclude all terms - no results"),
+                Arguments.of(new String[]{"keyboard"}, "mouse:3, computer:1, mouse pad:3, power cable:1, arm rest pad:1", "Exclude non-existent term - all terms appear")
+        );
     }
 
     /**
