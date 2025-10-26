@@ -123,9 +123,9 @@ public class OpenSearchResourceManagementExtension implements BeforeAllCallback,
         }
 
         // Create and start OpenSearch container using Testcontainers
-        // Using OpenSearch 2.0.1 to match the docker-compose configuration
+        // Using OpenSearch 2.11.1 to match the docker-compose configuration
         logger.info("Creating OpenSearch container...");
-        opensearchContainer = new OpensearchContainer("opensearchproject/opensearch:2.0.1");
+        opensearchContainer = new OpensearchContainer("opensearchproject/opensearch:2.11.1");
         opensearchContainer.withEnv("discovery.type", "single-node");
         opensearchContainer.withEnv("OPENSEARCH_JAVA_OPTS", "-Xms512m -Xmx512m");
         opensearchContainer.withStartupTimeout(Duration.ofMinutes(1));
