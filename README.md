@@ -1,71 +1,60 @@
 # OpenSearch Java Samples
 
-This repository contains Java code samples for working with OpenSearch, demonstrating various features and capabilities of the OpenSearch Java client.
+This repository contains Java code samples for working with OpenSearch, demonstrating various features and capabilities of the OpenSearch Java client through comprehensive test suites.
 
 ## Project Structure
 
-- `OpenSearchSamples/` - Maven project containing the OpenSearch Java samples
-  - `src/test/java/` - Test classes demonstrating OpenSearch features
-    - `GettingStarted/` - Basic examples for getting started with OpenSearch
-    - `KeywordDemo/` - Examples demonstrating keyword field mapping and searching
-      - `KeywordIndexingTests.java` - Tests for keyword field indexing
-      - `KeywordSearchingTests.java` - Tests for keyword field searching
-      - `KeywordAggregationTests.java` - Tests for keyword field aggregations
-      - `KeywordScriptingTests.java` - Tests for keyword field scripting
-      - `KeywordSortingTests.java` - Tests for keyword field sorting
-    - `TextDemo/` - Examples demonstrating text field mapping and analysis
-      - `TextIndexingTests.java` - Tests for text field indexing
-      - `TextTests.java` - Tests for text field analysis and searching
-    - `TestExtensions/` - JUnit 5 extensions for managing OpenSearch resources
-    - `TestInfrastructure/` - Helper classes for creating and managing test indices
-  - `infrastructure/` - Docker Compose configuration for running OpenSearch locally
+- `OpenSearchSamples/` - Maven project containing OpenSearch Java samples organized as JUnit test classes
+  - `src/test/java/` - Test suites exploring OpenSearch field types and core capabilities
+  - `TestExtensions/` - JUnit 5 extensions for managing OpenSearch test resources
+  - `TestInfrastructure/` - Helper utilities for test index management
 
 ## Prerequisites
 
 - Java 17 or later
 - Maven
-- Docker and Docker Compose
+- Docker (for Testcontainers)
 
 ## Running the Tests
 
-1. Start the OpenSearch container:
-
-```bash
-cd OpenSearchSamples/infrastructure
-docker-compose up -d
-```
-
-2. Run the tests:
+The tests use Testcontainers to automatically provision OpenSearch instances, so no manual setup is required:
 
 ```bash
 cd OpenSearchSamples
 mvn test
 ```
 
+Testcontainers will automatically:
+- Download the OpenSearch Docker image (if not already cached)
+- Start an OpenSearch container
+- Run the tests
+- Clean up the container after tests complete
+
 ## Test Categories
 
-### Getting Started Tests
+### Getting Started
 
-Basic tests demonstrating how to connect to OpenSearch, check cluster health, and create/delete indices.
+Foundational tests that demonstrate basic OpenSearch operations including cluster connectivity, health checks, and index lifecycle management.
 
-### Keyword Demo Tests
+### Field Type Demos
 
-Tests demonstrating how keyword fields work in OpenSearch:
-- Keyword fields are indexed as a single token without analysis
-- Exact matching with term queries
-- Filtering with boolean queries
-- Scoring with constant score queries
-- Aggregations (terms, cardinality, top hits, field collapsing, adjacency matrix)
-- Scripting (creating scripted fields, using parameters in scripts)
-- Sorting (script-based sorting, field sorting, lexicographical vs. numerical sorting)
+Each field type demo comprehensively explores how that data type works across OpenSearch's core capabilities:
 
-### Text Demo Tests
+#### Keyword Fields
 
-Tests demonstrating how text fields work in OpenSearch:
-- Text fields are analyzed using the standard analyzer by default
-- Configuring analyzers with stop words
-- Configuring analyzers with maximum token length
-- Searching text fields with term queries
+Explores keyword field behavior across indexing, searching, aggregations, sorting, and scripting. Keyword fields store exact string values without analysis, making them ideal for structured data like IDs, categories, and tags.
+
+#### Text Fields
+
+Demonstrates text field capabilities including full-text search, analyzer configuration, and tokenization behavior. Text fields are analyzed and optimized for natural language search queries.
+
+#### Byte Fields
+
+Examines byte field usage for storing small integer values (-128 to 127) with tests covering indexing, range queries, aggregations, and numeric operations.
+
+#### Short Fields
+
+Investigates short field functionality for storing integer values (-32,768 to 32,767) including indexing patterns, numeric queries, aggregations, and sorting behavior.
 
 ## License
 
