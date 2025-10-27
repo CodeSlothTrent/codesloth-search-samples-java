@@ -79,7 +79,7 @@ public class OpenSearchResourceManagementExtension implements BeforeAllCallback,
             if (!dockerFinished) {
                 logger.error("Docker daemon check timed out after 10 seconds");
                 dockerProcess.destroyForcibly();
-                throw new Exception(
+                throw new DockerDaemonException(
                     "Docker daemon is not responding. Please ensure Docker Desktop is running before executing tests.\n" +
                     "On Windows, start Docker Desktop and wait for it to fully initialize.\n" +
                     "You can verify Docker is running by executing: docker ps"
@@ -98,7 +98,7 @@ public class OpenSearchResourceManagementExtension implements BeforeAllCallback,
 
                 logger.error("Docker daemon check failed with exit code: " + exitCode);
                 logger.error("Docker error output: " + errorOutput.toString());
-                throw new Exception(
+                throw new DockerDaemonException(
                     "Docker daemon is not accessible (exit code: " + exitCode + ").\n" +
                     "Error: " + errorOutput.toString() + "\n" +
                     "Please ensure Docker Desktop is running before executing tests.\n" +
@@ -108,12 +108,11 @@ public class OpenSearchResourceManagementExtension implements BeforeAllCallback,
             }
 
             logger.info("Docker daemon is accessible and responding");
+        } catch (DockerDaemonException e) {
+            throw e; // Re-throw our custom exception as-is
         } catch (Exception e) {
-            if (e.getMessage().contains("Docker daemon")) {
-                throw e; // Re-throw our custom exceptions
-            }
             logger.error("Failed to check Docker daemon connectivity", e);
-            throw new Exception(
+            throw new DockerDaemonException(
                 "Unable to check Docker daemon status: " + e.getMessage() + "\n" +
                 "Please ensure Docker Desktop is running before executing tests.\n" +
                 "On Windows, start Docker Desktop and wait for it to fully initialize.\n" +
