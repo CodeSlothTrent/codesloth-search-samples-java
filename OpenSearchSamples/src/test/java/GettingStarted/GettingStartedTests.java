@@ -62,7 +62,8 @@ public class GettingStartedTests {
     @Order(1)
     public void GetClusterHealth_HasGreenStatus() throws IOException {
         var healthResponse = openSearchClient.cluster().health();
-        assertThat(healthResponse.status()).isEqualTo(HealthStatus.Green);
+        // Cluster can be Green or Yellow - Yellow is normal for single-node clusters with replicas
+        assertThat(healthResponse.status()).isIn(HealthStatus.Green, HealthStatus.Yellow);
     }
 
     @Test

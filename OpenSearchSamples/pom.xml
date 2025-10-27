@@ -95,17 +95,16 @@
                 <version>3.2.5</version>
                 <configuration>
                     <!-- Enable parallel test execution at the class level -->
-                    <!-- Each test class runs in its own JVM fork, allowing parallel execution -->
+                    <!-- All test classes share a single OpenSearch container for maximum performance -->
                     <parallel>classes</parallel>
-                    <!-- Limit to 2 threads to avoid overwhelming Docker -->
-                    <!-- Adjust based on your machine's resources (RAM, CPU, Docker allocation) -->
-                    <threadCount>2</threadCount>
+                    <!-- Use 4 threads for parallel execution (all classes share one container) -->
+                    <!-- This provides good parallelism without overwhelming the shared container -->
+                    <threadCount>4</threadCount>
                     <perCoreThreadCount>false</perCoreThreadCount>
-                    <!-- Each test class gets its own JVM to avoid resource conflicts -->
-                    <!-- This is essential for Testcontainers as each class starts its own container -->
+                    <!-- Reuse forks for better performance since we're using a shared container -->
                     <forkCount>1</forkCount>
-                    <reuseForks>false</reuseForks>
-                    <!-- Increase timeout for container startup -->
+                    <reuseForks>true</reuseForks>
+                    <!-- Increase timeout for initial container startup -->
                     <forkedProcessTimeoutInSeconds>300</forkedProcessTimeoutInSeconds>
                 </configuration>
             </plugin>
