@@ -17,11 +17,14 @@ import org.opensearch.client.opensearch._types.mapping.Property;
 import org.opensearch.client.opensearch.core.SearchResponse;
 import org.opensearch.client.opensearch.indices.AnalyzeResponse;
 import org.opensearch.client.opensearch.indices.analyze.AnalyzeToken;
+import org.opensearch.client.json.JsonData;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -289,6 +292,90 @@ public class KeywordSearchingTests {
             // Verify the results
             assertThat(result.hits().total().value()).as(explanation).isEqualTo(0);
             assertThat(result.hits().hits()).as(explanation).isEmpty();
+        }
+    }
+
+    /**
+     * Test data provider for range query tests.
+     * Each test case specifies the range boundaries (lexicographic), expected matching document IDs, and explanation.
+     */
+    private static Stream<org.junit.jupiter.params.provider.Arguments> rangeQueryTestCases() {
+        return Stream.of(
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "a", "mouse", 1L, List.of("1"),
+                        "Range [a to mouse] matches: Mouse(id=1,name=mouse) - lexicographic range"
+                ),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "mouse", "mouse", 1L, List.of("1"),
+                        "Range [mouse,mouse] matches exact value: Mouse(id=1,name=mouse)"
+                ),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "mouse pad", "z", 1L, List.of("2"),
+                        "Range [mouse pad to z] matches: Keyboard(id=2,name=mouse pad)"
+                ),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        "a", "zzz", 2L, List.of("1", "2"),
+                        "Range [a to zzz] matches all keyword values"
+                )
+        );
+    }
+
+    /**
+     * This test verifies that keyword fields support range queries for lexicographic (string) comparisons.
+     * Keyword fields support range queries based on lexicographic ordering.
+     * The test documents are:
+     * - id=1: Mouse, name="mouse"
+     * - id=2: Keyboard, name="mouse pad"
+     *
+     * @param gte            Greater than or equal to value (lexicographic)
+     * @param lte            Less than or equal to value (lexicographic)
+     * @param expectedHits   Expected number of matching documents
+     * @param expectedDocIds List of expected document IDs
+     * @param explanation    The explanation of the test case
+     * @throws Exception If an I/O error occurs
+     */
+    @ParameterizedTest
+    @MethodSource("rangeQueryTestCases")
+    public void keywordMapping_SupportsRangeQueries(String gte, String lte, long expectedHits, List<String> expectedDocIds, String explanation) throws Exception {
+        // Create a test index with keyword mapping for the name field
+        try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
+                mapping.properties("name", Property.of(p -> p.keyword(k -> k))))) {
+
+            // Create and index product documents
+            ProductDocument[] productDocuments = new ProductDocument[]{
+                    new ProductDocument(1, "mouse", 1),
+                    new ProductDocument(2, "mouse pad", 2)
+            };
+            testIndex.indexDocuments(productDocuments);
+
+            // Search for documents with a range query
+            SearchResponse<ProductDocument> result = openSearchClient.search(s -> s
+                            .index(testIndex.getName())
+                            .query(q -> q
+                                    .range(r -> r
+                                            .field("name")
+                                            .gte(JsonData.of(gte))
+                                            .lte(JsonData.of(lte))
+                                    )
+                            ),
+                    ProductDocument.class
+            );
+
+            // Verify the results
+            assertThat(result.hits().total().value()).as(explanation).isEqualTo(expectedHits);
+            assertThat(result.hits().hits()).hasSize((int) expectedHits);
+
+            // Verify the specific document IDs that matched
+            List<String> actualIds = result.hits().hits().stream()
+                    .map(hit -> hit.source().getId())
+                    .sorted()
+                    .collect(Collectors.toList());
+
+            List<String> expectedIdsSorted = expectedDocIds.stream()
+                    .sorted()
+                    .collect(Collectors.toList());
+
+            assertThat(actualIds).as("Matched document IDs for " + explanation).isEqualTo(expectedIdsSorted);
         }
     }
 } 
