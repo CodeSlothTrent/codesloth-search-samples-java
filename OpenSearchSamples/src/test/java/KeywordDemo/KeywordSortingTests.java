@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.opensearch.client.opensearch.OpenSearchClient;
+import org.opensearch.client.opensearch._types.ScriptSortType;
 import org.opensearch.client.opensearch._types.SortOrder;
 import org.opensearch.client.opensearch._types.mapping.Property;
 import org.opensearch.client.opensearch.core.SearchRequest;
@@ -70,6 +71,7 @@ public class KeywordSortingTests {
                     .index(testIndex.getName())
                     .sort(s -> s
                             .script(ss -> ss
+                                    .type(ScriptSortType.Number)  // Must specify the script return type
                                     .script(sc -> sc
                                             .inline(i -> i
                                                     .source("doc['name'].value == 'mouse pad' ? 0 : 1")

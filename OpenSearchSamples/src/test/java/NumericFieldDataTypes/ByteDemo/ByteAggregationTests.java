@@ -18,6 +18,7 @@ import org.opensearch.client.opensearch._types.mapping.Property;
 import org.opensearch.client.opensearch.core.SearchRequest;
 import org.opensearch.client.opensearch.core.SearchResponse;
 
+import java.util.Comparator;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -89,15 +90,15 @@ public class ByteAggregationTests {
             LongTermsAggregate termsAgg = response.aggregations().get("stock_counts").lterms();
 
             // Extract each term and its associated number of hits
-            Map<Long, Long> bucketCounts = termsAgg.buckets().array().stream()
+            Map<String, Long> bucketCounts = termsAgg.buckets().array().stream()
                     .collect(Collectors.toMap(
-                            bucket -> Long.parseLong(bucket.key()),
+                            bucket -> bucket.key().toString(),
                             bucket -> bucket.docCount()
                     ));
 
             // Format the results for verification (sorted by key for consistent ordering)
             String formattedResults = bucketCounts.entrySet().stream()
-                    .sorted(Map.Entry.comparingByKey())
+                    .sorted(Map.Entry.<String, Long>comparingByKey(Comparator.comparing(Long::parseLong)))
                     .map(entry -> entry.getKey() + ":" + entry.getValue())
                     .collect(Collectors.joining(", "));
 
@@ -200,9 +201,9 @@ public class ByteAggregationTests {
             LongTermsAggregate termsAgg = response.aggregations().get("stock_counts").lterms();
 
             // Extract each term and its associated number of hits
-            Map<Long, Long> bucketCounts = termsAgg.buckets().array().stream()
+            Map<String, Long> bucketCounts = termsAgg.buckets().array().stream()
                     .collect(Collectors.toMap(
-                            bucket -> Long.parseLong(bucket.key()),
+                            bucket -> bucket.key().toString(),
                             bucket -> bucket.docCount()
                     ));
 
@@ -259,15 +260,15 @@ public class ByteAggregationTests {
             LongTermsAggregate termsAgg = response.aggregations().get("stock_counts").lterms();
 
             // Extract each term and its associated number of hits
-            Map<Long, Long> bucketCounts = termsAgg.buckets().array().stream()
+            Map<String, Long> bucketCounts = termsAgg.buckets().array().stream()
                     .collect(Collectors.toMap(
-                            bucket -> Long.parseLong(bucket.key()),
+                            bucket -> bucket.key().toString(),
                             bucket -> bucket.docCount()
                     ));
 
             // Format the results for verification
             String formattedResults = bucketCounts.entrySet().stream()
-                    .sorted(Map.Entry.comparingByKey())
+                    .sorted(Map.Entry.<String, Long>comparingByKey(Comparator.comparing(Long::parseLong)))
                     .map(entry -> entry.getKey() + ":" + entry.getValue())
                     .collect(Collectors.joining(", "));
 
@@ -319,9 +320,9 @@ public class ByteAggregationTests {
             LongTermsAggregate termsAgg = response.aggregations().get("stock_counts").lterms();
 
             // Extract each term and its associated number of hits
-            Map<Long, Long> bucketCounts = termsAgg.buckets().array().stream()
+            Map<String, Long> bucketCounts = termsAgg.buckets().array().stream()
                     .collect(Collectors.toMap(
-                            bucket -> Long.parseLong(bucket.key()),
+                            bucket -> bucket.key().toString(),
                             bucket -> bucket.docCount()
                     ));
 

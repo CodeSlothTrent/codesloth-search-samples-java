@@ -124,18 +124,10 @@ public class SharedOpenSearchContainer {
         client = new OpenSearchClient(
             ApacheHttpClient5TransportBuilder.builder(new HttpHost("http", host, port))
                 .setMapper(new org.opensearch.client.json.jackson.JacksonJsonpMapper())
-                .build());
+                .build()
+        );
         
         started = true;
-        
-        // Register shutdown hook to stop container when JVM exits
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            logger.info("Shutting down shared OpenSearch container");
-            if (container != null) {
-                container.stop();
-                logger.info("Shared OpenSearch container stopped");
-            }
-        }));
         
         logger.info("Shared OpenSearch container setup completed successfully");
     }
@@ -157,5 +149,6 @@ public class SharedOpenSearchContainer {
     public static boolean isStarted() {
         return started;
     }
+    
 }
 

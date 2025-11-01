@@ -73,8 +73,8 @@ public class OpenSearchResourceManagementExtension implements BeforeAllCallback,
     @Override
     public void afterAll(ExtensionContext extensionContext) throws Exception {
         logger.info("Test class teardown (container remains running for other tests)");
-        // Container is shared across all test classes and will be stopped by JVM shutdown hook
         // Each test class should clean up its own indices if needed
+        // The container will be stopped when all tests complete via the extension lifecycle
     }
 
     @Override

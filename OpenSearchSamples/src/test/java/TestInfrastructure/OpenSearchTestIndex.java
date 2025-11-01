@@ -59,8 +59,8 @@ public class OpenSearchTestIndex implements AutoCloseable {
 
         // Always set shard count to 1
         IndexSettings.Builder settingsBuilder = new IndexSettings.Builder()
-                .numberOfShards("1")
-                .numberOfReplicas("0");
+                .numberOfShards(1)
+                .numberOfReplicas(0);
 
         if (settingsConsumer != null) {
             settingsConsumer.accept(settingsBuilder);

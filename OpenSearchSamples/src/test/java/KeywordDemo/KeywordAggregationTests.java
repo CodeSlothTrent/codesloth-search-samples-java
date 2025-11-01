@@ -1116,8 +1116,8 @@ public class KeywordAggregationTests {
     }
 
     /**
-     * Per: <a href="https://github.com/opensearch-project/opensearch-java/issues/1478">this GitHub bug that I have raised</a>
-     * The adjacency matrix is unusable in the Java client until a key field is added to the AdjacencyMatrixBucket
+     * Per: <a href="https://github.com/opensearch-project/opensearch-java/issues/1478">GitHub issue #1478</a>
+     * The adjacency matrix aggregation bug was fixed in OpenSearch Java client v3.0.0 - AdjacencyMatrixBucket now has a key() method.
      * <p>
      * This test verifies that keyword fields can be used for adjacency matrix aggregation.
      *
@@ -1167,26 +1167,29 @@ public class KeywordAggregationTests {
 
             AdjacencyMatrixAggregate matrixAgg = response.aggregations().get("product_matrix").adjacencyMatrix();
 
-//            // Check the bucket counts
-//            Map<String, Long> bucketCounts = matrixAgg.buckets().array().stream()
-//                    .collect(Collectors.toMap(
-//                            // This field is missing
-//                            AdjacencyMatrixBucket::key,
-//                            AdjacencyMatrixBucket::docCount
-//                    ));
-//
-//            // Format the results for verification
-//            String formattedResults = bucketCounts.entrySet().stream()
-//                    .map(entry -> entry.getKey() + ":" + entry.getValue())
-//                    .collect(Collectors.joining(", "));
-//
-//            // Verify the expected results
-//            assertThat(bucketCounts).containsEntry("keyboard", 3L);
-//            assertThat(bucketCounts).containsEntry("keyboard&mouse", 1L);
-//            assertThat(bucketCounts).containsEntry("keyboard&mouse pad", 1L);
-//            assertThat(bucketCounts).containsEntry("mouse", 4L);
-//            assertThat(bucketCounts).containsEntry("mouse pad", 3L);
-//            assertThat(bucketCounts).containsEntry("mouse&mouse pad", 2L);
+            // Bug fixed in OpenSearch Java client v3.0.0 - AdjacencyMatrixBucket now has a key() method
+            // See: https://github.com/opensearch-project/opensearch-java/issues/1478
+            assertThat(matrixAgg.buckets()).isNotNull();
+            
+            // Check the bucket counts
+            Map<String, Long> bucketCounts = matrixAgg.buckets().array().stream()
+                    .collect(Collectors.toMap(
+                            AdjacencyMatrixBucket::key,
+                            AdjacencyMatrixBucket::docCount
+                    ));
+            
+            // Format the results for verification
+            String formattedResults = bucketCounts.entrySet().stream()
+                    .map(entry -> entry.getKey() + ":" + entry.getValue())
+                    .collect(Collectors.joining(", "));
+
+            // Verify the expected results
+            assertThat(bucketCounts).containsEntry("keyboard", 3L);
+            assertThat(bucketCounts).containsEntry("keyboard&mouse", 1L);
+            assertThat(bucketCounts).containsEntry("keyboard&mouse pad", 1L);
+            assertThat(bucketCounts).containsEntry("mouse", 4L);
+            assertThat(bucketCounts).containsEntry("mouse pad", 3L);
+            assertThat(bucketCounts).containsEntry("mouse&mouse pad", 2L);
         }
     }
 }
