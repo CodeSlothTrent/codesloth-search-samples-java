@@ -1,13 +1,11 @@
 package FlattenedDemo;
 
-import FlattenedDemo.Documents.ProductMetadata;
-import FlattenedDemo.Documents.ProductWithFlattenedMetadata;
+import FlattenedDemo.Documents.ProductAttribute;
+import FlattenedDemo.Documents.ProductWithFlattenedAttribute;
 import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
 import TestInfrastructure.OpenSearchIndexFixture;
 import TestInfrastructure.OpenSearchTestIndex;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,7 +25,6 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @ExtendWith(OpenSearchResourceManagementExtension.class)
 public class FlattenedIndexingTests {
-    private static final Logger logger = LogManager.getLogger(FlattenedIndexingTests.class);
 
     private OpenSearchClient openSearchClient;
     private OpenSearchIndexFixture fixture;
@@ -43,90 +40,46 @@ public class FlattenedIndexingTests {
 
     /**
      * This test verifies that flattened fields are indexed correctly with all sub-properties accessible.
-     * Properties can be accessed using dotted notation: metadata.title, metadata.description, etc.
+     * Properties can be accessed using dotted notation: attribute.color, attribute.size, etc.
      *
      * @throws Exception If an I/O error occurs
      */
     @Test
     public void flattenedMapping_IndexesObjectWithSubProperties() throws Exception {
-        // Create a test index with flattened mapping for the metadata field
+        // Create a test index with flattened mapping for the attribute field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
-                mapping.properties("metadata", Property.of(p -> p.flatObject(f -> f))))) {
+                mapping.properties("attribute", Property.of(p -> p.flatObject(f -> f))))) {
 
-            // Create metadata as a strongly-typed record
-            // ProductMetadata: (title, brand, category, price, description)
-            ProductMetadata metadata = new ProductMetadata(
-                    "Wireless Mouse",
-                    "TechCorp",
-                    "Electronics",
-                    29.99,
-                    "Ergonomic wireless mouse"
-            );
+            // Create attribute as a strongly-typed record
+            // ProductAttribute: (color, size)
+            ProductAttribute attribute = new ProductAttribute("red", "large");
 
             // Create and index a product document
-            ProductWithFlattenedMetadata productDocument = new ProductWithFlattenedMetadata(
-                    "1", "Mouse", metadata);
-            testIndex.indexDocuments(new ProductWithFlattenedMetadata[]{productDocument});
+            ProductWithFlattenedAttribute productDocument = new ProductWithFlattenedAttribute(
+                    "1", "Product1", attribute);
+            testIndex.indexDocuments(new ProductWithFlattenedAttribute[]{productDocument});
 
             // Retrieve the document
-            GetResponse<ProductWithFlattenedMetadata> result = openSearchClient.get(g -> g
+            GetResponse<ProductWithFlattenedAttribute> result = openSearchClient.get(g -> g
                     .index(testIndex.getName())
                     .id(productDocument.getId()),
-                    ProductWithFlattenedMetadata.class
+                    ProductWithFlattenedAttribute.class
             );
 
             // Verify the results
             assertThat(result.found()).isTrue();
             assertThat(result.source()).isNotNull();
-            assertThat(result.source().getName()).isEqualTo("Mouse");
+            assertThat(result.source().getName()).isEqualTo("Product1");
             
-            // Verify metadata was stored (it will be deserialized as a ProductMetadata record)
-            ProductMetadata storedMetadata = result.source().getMetadata();
-            assertThat(storedMetadata).isNotNull();
-            assertThat(storedMetadata.title()).isEqualTo("Wireless Mouse");
-            assertThat(storedMetadata.brand()).isEqualTo("TechCorp");
+            // Verify attribute was stored (it will be deserialized as a ProductAttribute record)
+            ProductAttribute storedAttribute = result.source().getAttribute();
+            assertThat(storedAttribute).isNotNull();
+            assertThat(storedAttribute.color()).isEqualTo("red");
+            assertThat(storedAttribute.size()).isEqualTo("large");
         }
     }
 
-    /**
-     * This test verifies that flattened fields preserve nested object structures.
-     *
-     * @throws Exception If an I/O error occurs
-     */
-    @Test
-    public void flattenedMapping_IndexesNestedObjectStructures() throws Exception {
-        // Create a test index with flattened mapping for the metadata field
-        try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
-                mapping.properties("metadata", Property.of(p -> p.flatObject(f -> f))))) {
-
-            // Create metadata as a strongly-typed record
-            // ProductMetadata: (title, brand, category, price, description)
-            ProductMetadata metadata = new ProductMetadata(
-                    "Gaming Keyboard",
-                    "GameTech",
-                    "Electronics",
-                    129.99,
-                    "High-performance gaming keyboard"
-            );
-
-            // Create and index a product document
-            ProductWithFlattenedMetadata productDocument = new ProductWithFlattenedMetadata(
-                    "2", "Keyboard", metadata);
-            testIndex.indexDocuments(new ProductWithFlattenedMetadata[]{productDocument});
-
-            // Retrieve the document
-            GetResponse<ProductWithFlattenedMetadata> result = openSearchClient.get(g -> g
-                    .index(testIndex.getName())
-                    .id(productDocument.getId()),
-                    ProductWithFlattenedMetadata.class
-            );
-
-            // Verify the results
-            assertThat(result.found()).isTrue();
-            assertThat(result.source()).isNotNull();
-            assertThat(result.source().getName()).isEqualTo("Keyboard");
-            assertThat(result.source().getMetadata()).isNotNull();
-        }
-    }
 }
+
+
 

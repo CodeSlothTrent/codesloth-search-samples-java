@@ -1,7 +1,7 @@
 package FlattenedDemo;
 
-import FlattenedDemo.Documents.ProductMetadata;
-import FlattenedDemo.Documents.ProductWithFlattenedMetadata;
+import FlattenedDemo.Documents.ProductAttribute;
+import FlattenedDemo.Documents.ProductWithFlattenedAttribute;
 import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
 import TestInfrastructure.OpenSearchIndexFixture;
@@ -53,52 +53,44 @@ public class FlattenedAggregationTests {
      */
     @Test
     public void flattenedMapping_CanBeUsedForTermsAggregationOnSubProperty() throws Exception {
-        // Create a test index with flattened mapping for the metadata field
+        // Create a test index with flattened mapping for the attribute field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
-                mapping.properties("metadata", Property.of(p -> p.flatObject(f -> f))))) {
+                mapping.properties("attribute", Property.of(p -> p.flatObject(f -> f))))) {
 
-            // Create documents with different brands in metadata using strongly-typed records
-            // ProductMetadata: (title, brand, category, price, description)
-            ProductMetadata metadata1 = new ProductMetadata(
-                    "Wireless Mouse", "TechCorp", "Electronics", 29.99, "Ergonomic wireless mouse"
-            );
-            ProductMetadata metadata2 = new ProductMetadata(
-                    "Gaming Keyboard", "GameTech", "Electronics", 129.99, "High-performance gaming keyboard"
-            );
-            ProductMetadata metadata3 = new ProductMetadata(
-                    "USB Cable", "TechCorp", "Accessories", 9.99, "USB-C charging cable"
-            );
-            ProductMetadata metadata4 = new ProductMetadata(
-                    "4K Monitor", "TechCorp", "Electronics", 299.99, "4K Ultra HD monitor"
-            );
+            // Create documents with different colors in attributes using strongly-typed records
+            // ProductAttribute: (color, size)
+            ProductAttribute attribute1 = new ProductAttribute("red", "large");
+            ProductAttribute attribute2 = new ProductAttribute("blue", "medium");
+            ProductAttribute attribute3 = new ProductAttribute("red", "small");
+            ProductAttribute attribute4 = new ProductAttribute("blue", "large");
 
-            ProductWithFlattenedMetadata[] products = new ProductWithFlattenedMetadata[]{
-                    new ProductWithFlattenedMetadata("1", "Mouse", metadata1),
-                    new ProductWithFlattenedMetadata("2", "Keyboard", metadata2),
-                    new ProductWithFlattenedMetadata("3", "Cable", metadata3),
-                    new ProductWithFlattenedMetadata("4", "Monitor", metadata4)
+            ProductWithFlattenedAttribute[] products = new ProductWithFlattenedAttribute[]{
+                    new ProductWithFlattenedAttribute("1", "Product1", attribute1),
+                    new ProductWithFlattenedAttribute("2", "Product2", attribute2),
+                    new ProductWithFlattenedAttribute("3", "Product3", attribute3),
+                    new ProductWithFlattenedAttribute("4", "Product4", attribute4)
             };
             testIndex.indexDocuments(products);
 
-            // Create a search request with terms aggregation on metadata.brand
+            // Create a search request with terms aggregation on attribute.color
             SearchRequest searchRequest = new SearchRequest.Builder()
                     .index(testIndex.getName())
                     .size(0) // We do not want any documents returned; just the aggregations
-                    .aggregations("brand_counts", a -> a
+                    .aggregations("color_counts", a -> a
                             .terms(t -> t
-                                    .field("metadata.brand")
+                                    .field("attribute.color")
                                     .size(10)
                             )
                     )
                     .build();
 
             // Execute the search request
-            SearchResponse<ProductWithFlattenedMetadata> response = openSearchClient.search(searchRequest, ProductWithFlattenedMetadata.class);
+            SearchResponse<ProductWithFlattenedAttribute> response = openSearchClient.search(searchRequest, ProductWithFlattenedAttribute.class);
 
             // Verify the results
             assertThat(response.aggregations()).isNotNull();
 
-            StringTermsAggregate termsAgg = response.aggregations().get("brand_counts").sterms();
+            StringTermsAggregate termsAgg = response.aggregations().get("color_counts").sterms();
 
             // Extract each term and its associated number of hits
             Map<String, Long> bucketCounts = termsAgg.buckets().array().stream()
@@ -122,44 +114,38 @@ public class FlattenedAggregationTests {
      */
     @Test
     public void flattenedMapping_CanBeUsedForTermsAggregationOnMultipleSubProperties() throws Exception {
-        // Create a test index with flattened mapping for the metadata field
+        // Create a test index with flattened mapping for the attribute field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
-                mapping.properties("metadata", Property.of(p -> p.flatObject(f -> f))))) {
+                mapping.properties("attribute", Property.of(p -> p.flatObject(f -> f))))) {
 
-            // ProductMetadata: (title, brand, category, price, description)
-            ProductMetadata metadata1 = new ProductMetadata(
-                    "Wireless Mouse", "TechCorp", "Electronics", 29.99, "Ergonomic wireless mouse"
-            );
-            ProductMetadata metadata2 = new ProductMetadata(
-                    "Gaming Keyboard", "GameTech", "Electronics", 129.99, "High-performance gaming keyboard"
-            );
-            ProductMetadata metadata3 = new ProductMetadata(
-                    "USB Cable", "TechCorp", "Accessories", 9.99, "USB-C charging cable"
-            );
+            // ProductAttribute: (color, size)
+            ProductAttribute attribute1 = new ProductAttribute("red", "large");
+            ProductAttribute attribute2 = new ProductAttribute("blue", "medium");
+            ProductAttribute attribute3 = new ProductAttribute("red", "small");
 
-            ProductWithFlattenedMetadata[] products = new ProductWithFlattenedMetadata[]{
-                    new ProductWithFlattenedMetadata("1", "Mouse", metadata1),
-                    new ProductWithFlattenedMetadata("2", "Keyboard", metadata2),
-                    new ProductWithFlattenedMetadata("3", "Cable", metadata3)
+            ProductWithFlattenedAttribute[] products = new ProductWithFlattenedAttribute[]{
+                    new ProductWithFlattenedAttribute("1", "Product1", attribute1),
+                    new ProductWithFlattenedAttribute("2", "Product2", attribute2),
+                    new ProductWithFlattenedAttribute("3", "Product3", attribute3)
             };
             testIndex.indexDocuments(products);
 
-            // Aggregate on category
+            // Aggregate on size
             SearchRequest searchRequest = new SearchRequest.Builder()
                     .index(testIndex.getName())
                     .size(0)
-                    .aggregations("category_counts", a -> a
+                    .aggregations("size_counts", a -> a
                             .terms(t -> t
-                                    .field("metadata.category")
+                                    .field("attribute.size")
                                     .size(10)
                             )
                     )
                     .build();
 
-            SearchResponse<ProductWithFlattenedMetadata> response = openSearchClient.search(searchRequest, ProductWithFlattenedMetadata.class);
+            SearchResponse<ProductWithFlattenedAttribute> response = openSearchClient.search(searchRequest, ProductWithFlattenedAttribute.class);
 
             assertThat(response.aggregations()).isNotNull();
-            StringTermsAggregate termsAgg = response.aggregations().get("category_counts").sterms();
+            StringTermsAggregate termsAgg = response.aggregations().get("size_counts").sterms();
             Map<String, Long> bucketCounts = termsAgg.buckets().array().stream()
                     .collect(Collectors.toMap(
                             StringTermsBucket::key,
@@ -169,9 +155,9 @@ public class FlattenedAggregationTests {
             // Note: Aggregations on flatObject sub-properties may not work as expected
             // The behavior depends on how OpenSearch handles flatObject field aggregations
             // Log the results to verify what's actually returned
-            logger.info("Category aggregation results: {}", bucketCounts);
+            logger.info("Size aggregation results: {}", bucketCounts);
             
-            // If aggregations work, we should see Electronics=2 and Accessories=1
+            // If aggregations work, we should see large=1, medium=1, and small=1
             // But aggregations on flatObject sub-properties may not be supported
             // This test demonstrates the API usage even if results differ
         }

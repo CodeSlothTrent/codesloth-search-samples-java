@@ -1,6 +1,8 @@
 package FlattenedDemo;
 
 import FlattenedDemo.Documents.*;
+import FlattenedDemo.Documents.ProductAttribute;
+import FlattenedDemo.Documents.ProductWithFlattenedAttribute;
 import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
 import TestInfrastructure.OpenSearchIndexFixture;
@@ -57,39 +59,33 @@ public class FlattenedSearchingTests {
      */
     @Test
     public void flattenedMapping_SingleField_MultipleProperties_CanSearchByDottedNotation() throws Exception {
-        // Create a test index with flattened mapping for the metadata field
+        // Create a test index with flattened mapping for the attribute field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
-                mapping.properties("metadata", Property.of(p -> p.flatObject(f -> f))))) {
+                mapping.properties("attribute", Property.of(p -> p.flatObject(f -> f))))) {
 
-            // Create documents with metadata containing multiple properties using strongly-typed records
-            // ProductMetadata: (title, brand, category, price, description)
-            ProductMetadata metadata1 = new ProductMetadata(
-                    "Wireless Mouse", "TechCorp", "Electronics", 29.99, "Ergonomic wireless mouse"
-            );
-            ProductMetadata metadata2 = new ProductMetadata(
-                    "Gaming Keyboard", "GameTech", "Electronics", 129.99, "High-performance gaming keyboard"
-            );
-            ProductMetadata metadata3 = new ProductMetadata(
-                    "USB Cable", "TechCorp", "Accessories", 9.99, "USB-C charging cable"
-            );
+            // Create documents with attributes containing multiple properties using strongly-typed records
+            // ProductAttribute: (color, size)
+            ProductAttribute attribute1 = new ProductAttribute("red", "large");
+            ProductAttribute attribute2 = new ProductAttribute("blue", "medium");
+            ProductAttribute attribute3 = new ProductAttribute("red", "small");
 
-            ProductWithFlattenedMetadata[] products = new ProductWithFlattenedMetadata[]{
-                    new ProductWithFlattenedMetadata("1", "Mouse", metadata1),
-                    new ProductWithFlattenedMetadata("2", "Keyboard", metadata2),
-                    new ProductWithFlattenedMetadata("3", "Cable", metadata3)
+            ProductWithFlattenedAttribute[] products = new ProductWithFlattenedAttribute[]{
+                    new ProductWithFlattenedAttribute("1", "Product1", attribute1),
+                    new ProductWithFlattenedAttribute("2", "Product2", attribute2),
+                    new ProductWithFlattenedAttribute("3", "Product3", attribute3)
             };
             testIndex.indexDocuments(products);
 
-            // Search by metadata.brand using term query
-            SearchResponse<ProductWithFlattenedMetadata> result = openSearchClient.search(s -> s
+            // Search by attribute.color using term query
+            SearchResponse<ProductWithFlattenedAttribute> result = openSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .term(t -> t
-                                            .field("metadata.brand")
-                                            .value(FieldValue.of("TechCorp"))
+                                            .field("attribute.color")
+                                            .value(FieldValue.of("red"))
                                     )
                             ),
-                    ProductWithFlattenedMetadata.class
+                    ProductWithFlattenedAttribute.class
             );
 
             // With flatObject type, dotted notation queries work correctly
@@ -97,26 +93,125 @@ public class FlattenedSearchingTests {
             assertThat(result.hits().hits().stream()
                     .map(h -> h.source().getId())
                     .sorted())
-                    .containsExactly("1", "3"); // Mouse and Cable have TechCorp brand
+                    .containsExactly("1", "3"); // Product1 and Product3 have red color
 
-            // Search by metadata.category using dotted notation
-            SearchResponse<ProductWithFlattenedMetadata> categoryResult = openSearchClient.search(s -> s
+            // Search by attribute.size using dotted notation
+            SearchResponse<ProductWithFlattenedAttribute> sizeResult = openSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .term(t -> t
-                                            .field("metadata.category")
-                                            .value(FieldValue.of("Electronics"))
+                                            .field("attribute.size")
+                                            .value(FieldValue.of("large"))
                                     )
                             ),
-                    ProductWithFlattenedMetadata.class
+                    ProductWithFlattenedAttribute.class
             );
 
-            // With flatObject type, category search works correctly
-            assertThat(categoryResult.hits().total().value()).isEqualTo(2);
-            assertThat(categoryResult.hits().hits().stream()
+            // With flatObject type, size search works correctly
+            assertThat(sizeResult.hits().total().value()).isEqualTo(1);
+            assertThat(sizeResult.hits().hits().stream()
                     .map(h -> h.source().getId())
                     .sorted())
-                    .containsExactly("1", "2"); // Mouse and Keyboard are Electronics
+                    .containsExactly("1"); // Only Product1 has large size
+        }
+    }
+
+    /**
+     * Demonstrates that you CAN match multiple properties from within the same flattened field.
+     * This shows that for a single flattened object (not an array), you can search for multiple
+     * properties using boolean queries (e.g., attribute.color="red" AND attribute.size="large").
+     *
+     * This is different from flattened arrays, where you cannot reliably match multiple properties
+     * from the same object in the array.
+     *
+     * @throws Exception If an I/O error occurs
+     */
+    @Test
+    public void flattenedMapping_SingleField_CanMatchMultiplePropertiesFromSameObject() throws Exception {
+        // Create a test index with flattened mapping for the attribute field
+        try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
+                mapping.properties("attribute", Property.of(p -> p.flatObject(f -> f))))) {
+
+            // Create documents with attributes containing multiple properties
+            // ProductAttribute: (color, size)
+            ProductAttribute attribute1 = new ProductAttribute("red", "large");
+            ProductAttribute attribute2 = new ProductAttribute("blue", "medium");
+            ProductAttribute attribute3 = new ProductAttribute("red", "small");
+            ProductAttribute attribute4 = new ProductAttribute("red", "large");
+
+            ProductWithFlattenedAttribute[] products = new ProductWithFlattenedAttribute[]{
+                    new ProductWithFlattenedAttribute("1", "Product1", attribute1),
+                    new ProductWithFlattenedAttribute("2", "Product2", attribute2),
+                    new ProductWithFlattenedAttribute("3", "Product3", attribute3),
+                    new ProductWithFlattenedAttribute("4", "Product4", attribute4)
+            };
+            testIndex.indexDocuments(products);
+
+            // Search for products where attribute.color="red" AND attribute.size="large"
+            // This should work because we're matching multiple properties from the same flattened object
+            SearchResponse<ProductWithFlattenedAttribute> result = openSearchClient.search(s -> s
+                            .index(testIndex.getName())
+                            .query(q -> q
+                                    .bool(b -> b
+                                            .must(m -> m
+                                                    .term(t -> t
+                                                            .field("attribute.color")
+                                                            .value(FieldValue.of("red"))
+                                                    )
+                                            )
+                                            .must(m -> m
+                                                    .term(t -> t
+                                                            .field("attribute.size")
+                                                            .value(FieldValue.of("large"))
+                                                    )
+                                            )
+                                    )
+                            ),
+                    ProductWithFlattenedAttribute.class
+            );
+
+            // With flatObject type, matching multiple properties from the same object works correctly
+            // Should match Product1 (id="1") and Product4 (id="4") - both red AND large
+            assertThat(result.hits().total().value()).isEqualTo(2);
+            assertThat(result.hits().hits().stream()
+                    .map(h -> h.source().getId())
+                    .sorted())
+                    .containsExactly("1", "4"); // Product1 and Product4 match: red AND large
+
+            // Verify the actual documents match our expectations
+            assertThat(result.hits().hits().stream()
+                    .anyMatch(h -> h.source().getId().equals("1") && h.source().getName().equals("Product1")))
+                    .isTrue();
+            assertThat(result.hits().hits().stream()
+                    .anyMatch(h -> h.source().getId().equals("4") && h.source().getName().equals("Product4")))
+                    .isTrue();
+
+            // Test with different combination: color="red" AND size="small"
+            SearchResponse<ProductWithFlattenedAttribute> smallResult = openSearchClient.search(s -> s
+                            .index(testIndex.getName())
+                            .query(q -> q
+                                    .bool(b -> b
+                                            .must(m -> m
+                                                    .term(t -> t
+                                                            .field("attribute.color")
+                                                            .value(FieldValue.of("red"))
+                                                    )
+                                            )
+                                            .must(m -> m
+                                                    .term(t -> t
+                                                            .field("attribute.size")
+                                                            .value(FieldValue.of("small"))
+                                                    )
+                                            )
+                                    )
+                            ),
+                    ProductWithFlattenedAttribute.class
+            );
+
+            // Should match only Product3 (id="3") - red AND small
+            assertThat(smallResult.hits().total().value()).isEqualTo(1);
+            assertThat(smallResult.hits().hits().get(0).source().getId()).isEqualTo("3");
+            assertThat(smallResult.hits().hits().get(0).source().getName()).isEqualTo("Product3");
         }
     }
 
@@ -216,143 +311,212 @@ public class FlattenedSearchingTests {
     /**
      * Special Case 3: Demonstrates that multiple flattened fields can match multiple values
      * from each field independently. This shows that you CAN match across different flattened fields
-     * in the same document (e.g., category.name="Electronics" AND manufacturer.name="TechCorp").
+     * in the same document (e.g., primaryAttribute.color="red" AND secondaryAttribute.size="large").
      *
      * @throws Exception If an I/O error occurs
      */
     @Test
     public void flattenedMapping_MultipleFlattenedFields_CanMatchFromBothFields() throws Exception {
-        // Create a test index with multiple flattened fields: category and manufacturer
+        // Create a test index with multiple flattened fields: primaryAttribute and secondaryAttribute
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping -> {
-                    mapping.properties("category", Property.of(p -> p.flatObject(f -> f)));
-                    mapping.properties("manufacturer", Property.of(p -> p.flatObject(f -> f)));
+                    mapping.properties("primaryAttribute", Property.of(p -> p.flatObject(f -> f)));
+                    mapping.properties("secondaryAttribute", Property.of(p -> p.flatObject(f -> f)));
                 })) {
 
-            // Create documents with both category and manufacturer information using strongly-typed records
-            CategoryInfo category1 = new CategoryInfo("Electronics", "Main");
-            ManufacturerInfo manufacturer1 = new ManufacturerInfo("TechCorp", "USA");
+            // Create documents with both primary and secondary attributes using strongly-typed records
+            // ProductAttribute: (color, size)
+            ProductAttribute primary1 = new ProductAttribute("red", "large");
+            ProductAttribute secondary1 = new ProductAttribute("blue", "medium");
 
-            CategoryInfo category2 = new CategoryInfo("Electronics", "Main");
-            ManufacturerInfo manufacturer2 = new ManufacturerInfo("GameTech", "Germany");
+            ProductAttribute primary2 = new ProductAttribute("red", "medium");
+            ProductAttribute secondary2 = new ProductAttribute("green", "small");
 
-            CategoryInfo category3 = new CategoryInfo("Accessories", "Sub");
-            ManufacturerInfo manufacturer3 = new ManufacturerInfo("TechCorp", "USA");
+            ProductAttribute primary3 = new ProductAttribute("blue", "small");
+            ProductAttribute secondary3 = new ProductAttribute("red", "large");
 
-            ProductWithMultipleFlattenedFields[] products = new ProductWithMultipleFlattenedFields[]{
-                    new ProductWithMultipleFlattenedFields("1", "Mouse", category1, manufacturer1),
-                    new ProductWithMultipleFlattenedFields("2", "Keyboard", category2, manufacturer2),
-                    new ProductWithMultipleFlattenedFields("3", "Cable", category3, manufacturer3)
+            ProductWithTwoFlattenedAttributes[] products = new ProductWithTwoFlattenedAttributes[]{
+                    new ProductWithTwoFlattenedAttributes("1", "Product1", primary1, secondary1),
+                    new ProductWithTwoFlattenedAttributes("2", "Product2", primary2, secondary2),
+                    new ProductWithTwoFlattenedAttributes("3", "Product3", primary3, secondary3)
             };
             testIndex.indexDocuments(products);
 
-            // Search for products with category.name="Electronics" AND manufacturer.name="TechCorp"
+            // Search for products with primaryAttribute.color="red" AND secondaryAttribute.size="large"
             // This should work because we're matching across different flattened fields
-            SearchResponse<ProductWithMultipleFlattenedFields> result = openSearchClient.search(s -> s
+            SearchResponse<ProductWithTwoFlattenedAttributes> result = openSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .bool(b -> b
                                             .must(m -> m
                                                     .term(t -> t
-                                                            .field("category.name")
-                                                            .value(FieldValue.of("Electronics"))
+                                                            .field("primaryAttribute.color")
+                                                            .value(FieldValue.of("red"))
                                                     )
                                             )
                                             .must(m -> m
                                                     .term(t -> t
-                                                            .field("manufacturer.name")
-                                                            .value(FieldValue.of("TechCorp"))
+                                                            .field("secondaryAttribute.size")
+                                                            .value(FieldValue.of("large"))
                                                     )
                                             )
                                     )
                             ),
-                    ProductWithMultipleFlattenedFields.class
+                    ProductWithTwoFlattenedAttributes.class
             );
 
             // With flatObject type, matching across multiple flattened fields works correctly
             assertThat(result.hits().total().value()).isEqualTo(1);
             assertThat(result.hits().hits().stream()
                     .map(h -> h.source().getId()))
-                    .containsExactly("1"); // Mouse matches: Electronics AND TechCorp
+                    .containsExactly("3"); // Product3 matches: primaryAttribute.color="red" AND secondaryAttribute.size="large"
 
-            // Search for category.name="Electronics" alone - should match Mouse and Keyboard
-            SearchResponse<ProductWithMultipleFlattenedFields> categoryResult = openSearchClient.search(s -> s
+            // Search for primaryAttribute.color="red" alone - should match Product1, Product2, and Product3
+            SearchResponse<ProductWithTwoFlattenedAttributes> primaryResult = openSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .term(t -> t
-                                            .field("category.name")
-                                            .value(FieldValue.of("Electronics"))
+                                            .field("primaryAttribute.color")
+                                            .value(FieldValue.of("red"))
                                     )
                             ),
-                    ProductWithMultipleFlattenedFields.class
+                    ProductWithTwoFlattenedAttributes.class
             );
 
-            assertThat(categoryResult.hits().total().value()).isEqualTo(2);
-            assertThat(categoryResult.hits().hits().stream()
+            assertThat(primaryResult.hits().total().value()).isEqualTo(2);
+            assertThat(primaryResult.hits().hits().stream()
                     .map(h -> h.source().getId()))
                     .containsExactlyInAnyOrder("1", "2");
 
-            // Search for manufacturer.name="TechCorp" alone - should match Mouse and Cable
-            SearchResponse<ProductWithMultipleFlattenedFields> manufacturerResult = openSearchClient.search(s -> s
+            // Search for secondaryAttribute.size="large" alone - should match Product1 and Product3
+            SearchResponse<ProductWithTwoFlattenedAttributes> secondaryResult = openSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .term(t -> t
-                                            .field("manufacturer.name")
-                                            .value(FieldValue.of("TechCorp"))
+                                            .field("secondaryAttribute.size")
+                                            .value(FieldValue.of("large"))
                                     )
                             ),
-                    ProductWithMultipleFlattenedFields.class
+                    ProductWithTwoFlattenedAttributes.class
             );
 
-            assertThat(manufacturerResult.hits().total().value()).isEqualTo(2);
-            assertThat(manufacturerResult.hits().hits().stream()
+            assertThat(secondaryResult.hits().total().value()).isEqualTo(1);
+            assertThat(secondaryResult.hits().hits().stream()
                     .map(h -> h.source().getId()))
-                    .containsExactlyInAnyOrder("1", "3");
+                    .containsExactly("3");
         }
     }
 
     /**
-     * Additional test: Demonstrates searching on a single flattened field with match queries.
+     * Demonstrates searching on nested flattened fields using multiple levels of dotted notation.
+     * This shows how to access leaf properties when a flattened field contains nested complex types
+     * (e.g., details.attribute.color, details.attribute.size, details.description).
      *
      * @throws Exception If an I/O error occurs
      */
     @Test
-    public void flattenedMapping_SingleField_CanUseMatchQuery() throws Exception {
-        // Create a test index with flattened mapping for the metadata field
+    public void flattenedMapping_NestedFlattenedField_CanSearchWithMultipleDottedNotation() throws Exception {
+        // Create a test index with flattened mapping for the details field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
-                mapping.properties("metadata", Property.of(p -> p.flatObject(f -> f))))) {
+                mapping.properties("details", Property.of(p -> p.flatObject(f -> f))))) {
 
-            // ProductMetadata: (title, brand, category, price, description)
-            ProductMetadata metadata1 = new ProductMetadata(
-                    "Wireless Mouse", "TechCorp", "Electronics", 29.99, "Ergonomic design"
+            // Create documents with nested attribute structures
+            // ProductDetails: (attribute: ProductAttribute, description: String)
+            // ProductAttribute: (color, size)
+            ProductDetails details1 = new ProductDetails(
+                    new ProductAttribute("red", "large"),
+                    "Premium quality product"
             );
-            ProductMetadata metadata2 = new ProductMetadata(
-                    "Gaming Keyboard", "GameTech", "Electronics", 129.99, "Mechanical switches"
+            ProductDetails details2 = new ProductDetails(
+                    new ProductAttribute("blue", "medium"),
+                    "Standard quality product"
+            );
+            ProductDetails details3 = new ProductDetails(
+                    new ProductAttribute("red", "small"),
+                    "Compact design"
             );
 
-            ProductWithFlattenedMetadata[] products = new ProductWithFlattenedMetadata[]{
-                    new ProductWithFlattenedMetadata("1", "Mouse", metadata1),
-                    new ProductWithFlattenedMetadata("2", "Keyboard", metadata2)
+            ProductWithNestedFlattened[] products = new ProductWithNestedFlattened[]{
+                    new ProductWithNestedFlattened("1", "Product1", details1),
+                    new ProductWithNestedFlattened("2", "Product2", details2),
+                    new ProductWithNestedFlattened("3", "Product3", details3)
             };
             testIndex.indexDocuments(products);
 
-            // Search using match query on a flattened field property
-            // Note: flatObject fields are indexed as keywords, so match queries may behave differently
-            // than on text fields. Using a term query which works reliably with flatObject keyword indexing.
-            SearchResponse<ProductWithFlattenedMetadata> result = openSearchClient.search(s -> s
+            // Search using multi-level dotted notation: details.attribute.color
+            SearchResponse<ProductWithNestedFlattened> result = openSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .term(t -> t
-                                            .field("metadata.title")
-                                            .value(FieldValue.of("Wireless Mouse"))
+                                            .field("details.attribute.color")
+                                            .value(FieldValue.of("red"))
                                     )
                             ),
-                    ProductWithFlattenedMetadata.class
+                    ProductWithNestedFlattened.class
             );
 
-            // With flatObject, properties are indexed as keywords, so exact term matching works
-            assertThat(result.hits().total().value()).isEqualTo(1);
-            assertThat(result.hits().hits().get(0).source().getId()).isEqualTo("1");
+            // With flatObject type, nested dotted notation queries work correctly
+            assertThat(result.hits().total().value()).isEqualTo(2);
+            assertThat(result.hits().hits().stream()
+                    .map(h -> h.source().getId())
+                    .sorted())
+                    .containsExactly("1", "3"); // Product1 and Product3 have red color in nested attribute
+
+            // Search using another nested property: details.attribute.size
+            SearchResponse<ProductWithNestedFlattened> sizeResult = openSearchClient.search(s -> s
+                            .index(testIndex.getName())
+                            .query(q -> q
+                                    .term(t -> t
+                                            .field("details.attribute.size")
+                                            .value(FieldValue.of("large"))
+                                    )
+                            ),
+                    ProductWithNestedFlattened.class
+            );
+
+            assertThat(sizeResult.hits().total().value()).isEqualTo(1);
+            assertThat(sizeResult.hits().hits().get(0).source().getId()).isEqualTo("1");
+
+            // Search using a direct property of details: details.description
+            SearchResponse<ProductWithNestedFlattened> descriptionResult = openSearchClient.search(s -> s
+                            .index(testIndex.getName())
+                            .query(q -> q
+                                    .term(t -> t
+                                            .field("details.description")
+                                            .value(FieldValue.of("Premium quality product"))
+                                    )
+                            ),
+                    ProductWithNestedFlattened.class
+            );
+
+            assertThat(descriptionResult.hits().total().value()).isEqualTo(1);
+            assertThat(descriptionResult.hits().hits().get(0).source().getId()).isEqualTo("1");
+
+            // Search combining nested and direct properties: details.attribute.color="red" AND details.description="Compact design"
+            SearchResponse<ProductWithNestedFlattened> combinedResult = openSearchClient.search(s -> s
+                            .index(testIndex.getName())
+                            .query(q -> q
+                                    .bool(b -> b
+                                            .must(m -> m
+                                                    .term(t -> t
+                                                            .field("details.attribute.color")
+                                                            .value(FieldValue.of("red"))
+                                                    )
+                                            )
+                                            .must(m -> m
+                                                    .term(t -> t
+                                                            .field("details.description")
+                                                            .value(FieldValue.of("Compact design"))
+                                                    )
+                                            )
+                                    )
+                            ),
+                    ProductWithNestedFlattened.class
+            );
+
+            assertThat(combinedResult.hits().total().value()).isEqualTo(1);
+            assertThat(combinedResult.hits().hits().get(0).source().getId()).isEqualTo("3");
         }
     }
+
 }
 
