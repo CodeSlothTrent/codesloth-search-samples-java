@@ -49,16 +49,16 @@ public class FlattenedSearchingTests {
     }
 
     /**
-     * Special Case 1: Demonstrates that a single flattened field with multiple properties
-     * can be searched using dotted notation (flattenedField.property).
-     * This shows how to search on individual properties within a flattened object.
+     * Demonstrates that a single flattened field can be searched using dotted notation
+     * (flattenedField.property). This shows how to search on individual properties within
+     * a flattened object.
      * 
      * This test uses the flatObject field type to demonstrate flattened field functionality.
      *
      * @throws Exception If an I/O error occurs
      */
     @Test
-    public void flattenedMapping_SingleField_MultipleProperties_CanSearchByDottedNotation() throws Exception {
+    public void flattenedMapping_SingleField_CanSearchByDottedNotation() throws Exception {
         // Create a test index with flattened mapping for the attribute field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
                 mapping.properties("attribute", Property.of(p -> p.flatObject(f -> f))))) {
@@ -216,100 +216,7 @@ public class FlattenedSearchingTests {
     }
 
     /**
-     * Special Case 2: Demonstrates the limitation that an array of flattened objects
-     * cannot match multiple values from the same object in the array.
-     * 
-     * When you have an array like:
-     * [
-     *   {color: "red", size: "large"},
-     *   {color: "blue", size: "small"}
-     * ]
-     * 
-     * You cannot find documents where a single object has both color="red" AND size="large"
-     * using flattened fields. You need nested or join types for this.
-     *
-     * @throws Exception If an I/O error occurs
-     */
-    @Test
-    public void flattenedMapping_ArrayOfObjects_CannotMatchMultipleValuesFromSameObject() throws Exception {
-        // Create a test index with flattened mapping for the attributes array field
-        try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
-                mapping.properties("attributes", Property.of(p -> p.flatObject(f -> f))))) {
-
-            // Create a document with an array of attributes where each object has multiple properties
-            // Using strongly-typed ProductAttribute records
-            List<ProductAttribute> attributes = new ArrayList<>();
-            
-            // Object 1: red and large
-            ProductAttribute attr1 = new ProductAttribute("red", "large");
-            attributes.add(attr1);
-            
-            // Object 2: blue and small
-            ProductAttribute attr2 = new ProductAttribute("blue", "small");
-            attributes.add(attr2);
-
-            ProductWithFlattenedArray[] products = new ProductWithFlattenedArray[]{
-                    new ProductWithFlattenedArray("1", "Product1", attributes)
-            };
-            testIndex.indexDocuments(products);
-
-            // Try to match a single object with both color="red" AND size="large"
-            // This should NOT work with flattened fields because flattened treats arrays
-            // as separate values, not as structured objects
-            SearchResponse<ProductWithFlattenedArray> bothResult = openSearchClient.search(s -> s
-                            .index(testIndex.getName())
-                            .query(q -> q
-                                    .bool(b -> b
-                                            .must(m -> m
-                                                    .term(t -> t
-                                                            .field("attributes.color")
-                                                            .value(FieldValue.of("red"))
-                                                    )
-                                            )
-                                            .must(m -> m
-                                                    .term(t -> t
-                                                            .field("attributes.size")
-                                                            .value(FieldValue.of("large"))
-                                                    )
-                                            )
-                                    )
-                            ),
-                    ProductWithFlattenedArray.class
-            );
-
-            // With flattened fields, this query will incorrectly match because:
-            // - attributes.color="red" matches (from first object)
-            // - attributes.size="large" matches (from first object)
-            // But flattened doesn't preserve the relationship that these come from the same object
-            // So it matches even though they are in the same object
-            // NOTE: This is a known limitation - for proper matching, you need nested or join types
-            
-            // Actually, let's verify what happens - it might match, but it shouldn't be reliable
-            // The behavior depends on how OpenSearch handles flattened arrays internally
-            logger.info("Result count for both attributes: {}", bothResult.hits().total().value());
-            
-            // However, we can verify that individual searches work
-            SearchResponse<ProductWithFlattenedArray> colorResult = openSearchClient.search(s -> s
-                            .index(testIndex.getName())
-                            .query(q -> q
-                                    .term(t -> t
-                                            .field("attributes.color")
-                                            .value(FieldValue.of("red"))
-                                    )
-                            ),
-                    ProductWithFlattenedArray.class
-            );
-
-            assertThat(colorResult.hits().total().value()).isGreaterThanOrEqualTo(1);
-            
-            // This demonstrates the limitation - flattened arrays don't preserve object boundaries
-            // For accurate matching of multiple properties from the same array object,
-            // you must use nested or join field types
-        }
-    }
-
-    /**
-     * Special Case 3: Demonstrates that multiple flattened fields can match multiple values
+     * Demonstrates that multiple flattened fields can match multiple values
      * from each field independently. This shows that you CAN match across different flattened fields
      * in the same document (e.g., primaryAttribute.color="red" AND secondaryAttribute.size="large").
      *
@@ -414,7 +321,7 @@ public class FlattenedSearchingTests {
      * @throws Exception If an I/O error occurs
      */
     @Test
-    public void flattenedMapping_NestedFlattenedField_CanSearchWithMultipleDottedNotation() throws Exception {
+    public void flattenedMapping_NestedFlattenedField_CanSearchByNestedDottedNotation() throws Exception {
         // Create a test index with flattened mapping for the details field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
                 mapping.properties("details", Property.of(p -> p.flatObject(f -> f))))) {
@@ -515,6 +422,99 @@ public class FlattenedSearchingTests {
 
             assertThat(combinedResult.hits().total().value()).isEqualTo(1);
             assertThat(combinedResult.hits().hits().get(0).source().getId()).isEqualTo("3");
+        }
+    }
+
+    /**
+     * Demonstrates the limitation that an array of flattened objects
+     * cannot match multiple values from the same object in the array.
+     * 
+     * When you have an array like:
+     * [
+     *   {color: "red", size: "large"},
+     *   {color: "blue", size: "small"}
+     * ]
+     * 
+     * You cannot find documents where a single object has both color="red" AND size="large"
+     * using flattened fields. You need nested or join types for this.
+     *
+     * @throws Exception If an I/O error occurs
+     */
+    @Test
+    public void flattenedMapping_ArrayOfObjects_CannotMatchMultipleValuesFromSameObject() throws Exception {
+        // Create a test index with flattened mapping for the attributes array field
+        try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
+                mapping.properties("attributes", Property.of(p -> p.flatObject(f -> f))))) {
+
+            // Create a document with an array of attributes where each object has multiple properties
+            // Using strongly-typed ProductAttribute records
+            List<ProductAttribute> attributes = new ArrayList<>();
+            
+            // Object 1: red and large
+            ProductAttribute attr1 = new ProductAttribute("red", "large");
+            attributes.add(attr1);
+            
+            // Object 2: blue and small
+            ProductAttribute attr2 = new ProductAttribute("blue", "small");
+            attributes.add(attr2);
+
+            ProductWithFlattenedArray[] products = new ProductWithFlattenedArray[]{
+                    new ProductWithFlattenedArray("1", "Product1", attributes)
+            };
+            testIndex.indexDocuments(products);
+
+            // Try to match a single object with both color="red" AND size="large"
+            // This should NOT work with flattened fields because flattened treats arrays
+            // as separate values, not as structured objects
+            SearchResponse<ProductWithFlattenedArray> bothResult = openSearchClient.search(s -> s
+                            .index(testIndex.getName())
+                            .query(q -> q
+                                    .bool(b -> b
+                                            .must(m -> m
+                                                    .term(t -> t
+                                                            .field("attributes.color")
+                                                            .value(FieldValue.of("red"))
+                                                    )
+                                            )
+                                            .must(m -> m
+                                                    .term(t -> t
+                                                            .field("attributes.size")
+                                                            .value(FieldValue.of("large"))
+                                                    )
+                                            )
+                                    )
+                            ),
+                    ProductWithFlattenedArray.class
+            );
+
+            // With flattened fields, this query will incorrectly match because:
+            // - attributes.color="red" matches (from first object)
+            // - attributes.size="large" matches (from first object)
+            // But flattened doesn't preserve the relationship that these come from the same object
+            // So it matches even though they are in the same object
+            // NOTE: This is a known limitation - for proper matching, you need nested or join types
+            
+            // Actually, let's verify what happens - it might match, but it shouldn't be reliable
+            // The behavior depends on how OpenSearch handles flattened arrays internally
+            logger.info("Result count for both attributes: {}", bothResult.hits().total().value());
+            
+            // However, we can verify that individual searches work
+            SearchResponse<ProductWithFlattenedArray> colorResult = openSearchClient.search(s -> s
+                            .index(testIndex.getName())
+                            .query(q -> q
+                                    .term(t -> t
+                                            .field("attributes.color")
+                                            .value(FieldValue.of("red"))
+                                    )
+                            ),
+                    ProductWithFlattenedArray.class
+            );
+
+            assertThat(colorResult.hits().total().value()).isGreaterThanOrEqualTo(1);
+            
+            // This demonstrates the limitation - flattened arrays don't preserve object boundaries
+            // For accurate matching of multiple properties from the same array object,
+            // you must use nested or join field types
         }
     }
 
