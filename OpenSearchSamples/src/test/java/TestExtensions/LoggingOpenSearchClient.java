@@ -4,6 +4,8 @@ import TestInfrastructure.OpenSearchRequestLogger;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch.core.SearchRequest;
 import org.opensearch.client.opensearch.core.SearchResponse;
+import org.opensearch.client.opensearch.core.TermvectorsRequest;
+import org.opensearch.client.opensearch.core.TermvectorsResponse;
 
 import java.io.IOException;
 import java.util.function.Function;
@@ -36,6 +38,19 @@ public class LoggingOpenSearchClient {
         var request = fn.apply(builder).build();
         OpenSearchRequestLogger.LogRequestJson(request);
         SearchResponse<T> response = client.search(request, clazz);
+        OpenSearchRequestLogger.LogResponseJson(client, response);
+        return response;
+    }
+
+    /**
+     * Performs a termvectors operation with automatic request/response logging.
+     */
+    @SuppressWarnings("unchecked")
+    public TermvectorsResponse termvectors(Function<TermvectorsRequest.Builder<Object>, TermvectorsRequest.Builder<Object>> fn) throws IOException {
+        var builder = new TermvectorsRequest.Builder<>();
+        var request = fn.apply(builder).build();
+        OpenSearchRequestLogger.LogRequestJson(request);
+        TermvectorsResponse response = client.termvectors((TermvectorsRequest<Object>) request);
         OpenSearchRequestLogger.LogResponseJson(client, response);
         return response;
     }

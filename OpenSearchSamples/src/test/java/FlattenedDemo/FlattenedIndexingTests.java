@@ -104,7 +104,7 @@ public class FlattenedIndexingTests {
             testIndex.indexDocuments(new ProductWithFlattenedAttribute[]{productDocument});
 
             // This demonstrates that no tokens are created at this level
-            TermvectorsResponse topLevelResults = loggingOpenSearchClient.getClient().termvectors(t -> t
+            TermvectorsResponse topLevelResults = loggingOpenSearchClient.termvectors(t -> t
                     .index(testIndex.getName())
                     .id(productDocument.getId())
                     .fields("attribute")
@@ -121,7 +121,7 @@ public class FlattenedIndexingTests {
             // Get term vectors for the color sub-property
             // NOTE: Term vectors show INCORRECT results - they suggest tokenization happens,
             // but flattened fields actually store unanalyzed keywords preserving exact values
-            TermvectorsResponse colorResult = loggingOpenSearchClient.getClient().termvectors(t -> t
+            TermvectorsResponse colorResult = loggingOpenSearchClient.termvectors(t -> t
                     .index(testIndex.getName())
                     .id(productDocument.getId())
                     .fields("attribute.color")
@@ -146,7 +146,7 @@ public class FlattenedIndexingTests {
             assertThat(colorTerms.get("metal").termFreq()).isEqualTo(1);
 
             // Get term vectors for the size sub-property
-            TermvectorsResponse sizeResult = loggingOpenSearchClient.getClient().termvectors(t -> t
+            TermvectorsResponse sizeResult = loggingOpenSearchClient.termvectors(t -> t
                     .index(testIndex.getName())
                     .id(productDocument.getId())
                     .fields("attribute.size")
