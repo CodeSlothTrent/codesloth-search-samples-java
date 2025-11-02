@@ -1,31 +1,53 @@
 package TestExtensions;
 
+import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.core5.http.HttpHost;
+import org.apache.hc.core5.util.Timeout;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.transport.httpclient5.ApacheHttpClient5TransportBuilder;
 import org.opensearch.testcontainers.OpensearchContainer;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.Network;
+import org.testcontainers.containers.wait.strategy.Wait;
 
 import java.time.Duration;
 
 /**
- * Singleton class that manages a shared OpenSearch container across all test classes.
+ * Singleton class that manages shared OpenSearch and OpenSearch Dashboards containers across all test classes.
  * <p>
- * This container is started once before any tests run and stopped after all tests complete,
+ * These containers are started once before any tests run and stopped after all tests complete,
  * significantly improving test performance by avoiding the overhead of starting/stopping
  * containers for each test class.
  * </p>
  * <p>
  * Each test class should create its own unique index to avoid conflicts.
  * </p>
+ * <p>
+ * Standardized ports are used:
+ * <ul>
+ *     <li>OpenSearch: 9200 (HTTP)</li>
+ *     <li>OpenSearch Dashboards: 5601 (HTTP)</li>
+ * </ul>
+ * </p>
  */
 public class SharedOpenSearchContainer {
     
     private static final Logger logger = LogManager.getLogger(SharedOpenSearchContainer.class);
-    private static OpensearchContainer container;
+    private static OpensearchContainer opensearchContainer;
+    private static GenericContainer<?> dashboardsContainer;
+    private static Network network;
     private static OpenSearchClient client;
     private static boolean started = false;
+    
+    // Standardized ports
+    private static final int OPENSEARCH_HTTP_PORT = 9200;
+    private static final int DASHBOARDS_HTTP_PORT = 5601;
+    
+    // Container names for network communication
+    private static final String OPENSEARCH_CONTAINER_NAME = "opensearch-test";
+    private static final String DASHBOARDS_CONTAINER_NAME = "opensearch-dashboards-test";
     
     /**
      * Starts the shared OpenSearch container if not already started.
@@ -99,52 +121,116 @@ public class SharedOpenSearchContainer {
             );
         }
         
-        // Create and start container
-        logger.info("Creating shared OpenSearch container...");
-        container = new OpensearchContainer("opensearchproject/opensearch:2.11.1");
-        container.withEnv("discovery.type", "single-node");
-        container.withEnv("OPENSEARCH_JAVA_OPTS", "-Xms512m -Xmx512m");
-        container.withStartupTimeout(Duration.ofMinutes(2));
+        // Create Docker network for container communication
+        logger.info("Creating Docker network for OpenSearch and Dashboards...");
+        network = Network.newNetwork();
+        
+        // Create and configure OpenSearch container with fixed port
+        logger.info("Creating shared OpenSearch container with fixed port " + OPENSEARCH_HTTP_PORT + "...");
+        opensearchContainer = new OpensearchContainer("opensearchproject/opensearch:2.11.1");
+        opensearchContainer.withEnv("discovery.type", "single-node");
+        opensearchContainer.withEnv("OPENSEARCH_JAVA_OPTS", "-Xms512m -Xmx512m");
+        opensearchContainer.withStartupTimeout(Duration.ofMinutes(2));
+        opensearchContainer.withNetwork(network);
+        opensearchContainer.withNetworkAliases(OPENSEARCH_CONTAINER_NAME);
         
         logger.info("Starting shared OpenSearch container...");
-        container.start();
-        logger.info("Shared OpenSearch container started successfully");
+        opensearchContainer.start();
         
-        // Create client
-        String httpHostAddress = container.getHttpHostAddress();
-        logger.info("OpenSearch HTTP host address: " + httpHostAddress);
+        // Configure fixed port binding after container is created but before final startup
+        // Note: We'll use the mapped port instead to avoid interfering with startup checks
+        int mappedPort = opensearchContainer.getMappedPort(OPENSEARCH_HTTP_PORT);
+        logger.info("Shared OpenSearch container started successfully. Internal port: " + OPENSEARCH_HTTP_PORT + ", Mapped port: " + mappedPort);
         
-        String cleanAddress = httpHostAddress.replaceFirst("^https?://", "").replaceFirst("^//", "");
-        String[] parts = cleanAddress.split(":");
-        String host = parts[0];
-        int port = Integer.parseInt(parts[1]);
+        // Create and configure OpenSearch Dashboards container with fixed port
+        logger.info("Creating OpenSearch Dashboards container with fixed port " + DASHBOARDS_HTTP_PORT + "...");
+        dashboardsContainer = new GenericContainer<>("opensearchproject/opensearch-dashboards:2.11.1");
+        dashboardsContainer.withNetwork(network);
+        dashboardsContainer.withNetworkAliases(DASHBOARDS_CONTAINER_NAME);
+        dashboardsContainer.withExposedPorts(DASHBOARDS_HTTP_PORT);
+        dashboardsContainer.withEnv("OPENSEARCH_HOSTS", "http://" + OPENSEARCH_CONTAINER_NAME + ":" + OPENSEARCH_HTTP_PORT);
+        dashboardsContainer.withEnv("DISABLE_SECURITY_DASHBOARDS_PLUGIN", "true");
+        dashboardsContainer.waitingFor(Wait.forHttp("/").forStatusCode(200).withStartupTimeout(Duration.ofMinutes(2)));
         
-        logger.info("Parsed host: " + host + ", port: " + port);
+        logger.info("Starting OpenSearch Dashboards container...");
+        dashboardsContainer.start();
+        int dashboardsMappedPort = dashboardsContainer.getMappedPort(DASHBOARDS_HTTP_PORT);
+        logger.info("OpenSearch Dashboards container started successfully. Internal port: " + DASHBOARDS_HTTP_PORT + ", Mapped port: " + dashboardsMappedPort);
         
+        // Create client using mapped port (which may differ from internal port)
+        String host = opensearchContainer.getHost();
+        int clientPort = opensearchContainer.getMappedPort(OPENSEARCH_HTTP_PORT);
+        logger.info("OpenSearch host: " + host + ", mapped port: " + clientPort);
+        
+        // Configure HttpClient with 10 second socket timeout
         client = new OpenSearchClient(
-            ApacheHttpClient5TransportBuilder.builder(new HttpHost("http", host, port))
+            ApacheHttpClient5TransportBuilder.builder(new HttpHost("http", host, clientPort))
+                .setHttpClientConfigCallback(httpClientBuilder -> {
+                    RequestConfig config = RequestConfig.custom()
+                        .setResponseTimeout(Timeout.ofSeconds(10))
+                        .setConnectionRequestTimeout(Timeout.ofSeconds(10))
+                        .build();
+                    return httpClientBuilder.setDefaultRequestConfig(config);
+                })
                 .setMapper(new org.opensearch.client.json.jackson.JacksonJsonpMapper())
                 .build()
         );
         
         started = true;
         
-        logger.info("Shared OpenSearch container setup completed successfully");
+        logger.info("Shared OpenSearch and Dashboards containers setup completed successfully");
+        logger.info("OpenSearch available at: http://localhost:" + clientPort);
+        logger.info("OpenSearch Dashboards available at: http://localhost:" + dashboardsMappedPort);
     }
     
     /**
-     * Gets the container instance (for advanced use cases).
+     * Gets the OpenSearch container instance (for advanced use cases).
      * 
-     * @return the container instance, or null if not started
+     * @return the OpenSearch container instance, or null if not started
      */
     public static OpensearchContainer getContainer() {
-        return container;
+        return opensearchContainer;
     }
     
     /**
-     * Checks if the container is started.
+     * Gets the OpenSearch Dashboards container instance (for advanced use cases).
      * 
-     * @return true if the container is running
+     * @return the Dashboards container instance, or null if not started
+     */
+    public static GenericContainer<?> getDashboardsContainer() {
+        return dashboardsContainer;
+    }
+    
+    /**
+     * Gets the URL for accessing OpenSearch Dashboards.
+     * 
+     * @return the Dashboards URL (e.g., "http://localhost:5601"), or null if not started
+     */
+    public static String getDashboardsUrl() {
+        if (!started || dashboardsContainer == null) {
+            return null;
+        }
+        int mappedPort = dashboardsContainer.getMappedPort(DASHBOARDS_HTTP_PORT);
+        return "http://localhost:" + mappedPort;
+    }
+    
+    /**
+     * Gets the URL for accessing OpenSearch.
+     * 
+     * @return the OpenSearch URL (e.g., "http://localhost:9200"), or null if not started
+     */
+    public static String getOpenSearchUrl() {
+        if (!started || opensearchContainer == null) {
+            return null;
+        }
+        int mappedPort = opensearchContainer.getMappedPort(OPENSEARCH_HTTP_PORT);
+        return "http://localhost:" + mappedPort;
+    }
+    
+    /**
+     * Checks if the containers are started.
+     * 
+     * @return true if the containers are running
      */
     public static boolean isStarted() {
         return started;

@@ -59,16 +59,11 @@ public class FlattenedAggregationTests {
 
             // Create documents with different colors in attributes using strongly-typed records
             // ProductAttribute: (color, size)
-            ProductAttribute attribute1 = new ProductAttribute("red", "large");
-            ProductAttribute attribute2 = new ProductAttribute("blue", "medium");
-            ProductAttribute attribute3 = new ProductAttribute("red", "small");
-            ProductAttribute attribute4 = new ProductAttribute("blue", "large");
-
             ProductWithFlattenedAttribute[] products = new ProductWithFlattenedAttribute[]{
-                    new ProductWithFlattenedAttribute("1", "Product1", attribute1),
-                    new ProductWithFlattenedAttribute("2", "Product2", attribute2),
-                    new ProductWithFlattenedAttribute("3", "Product3", attribute3),
-                    new ProductWithFlattenedAttribute("4", "Product4", attribute4)
+                    new ProductWithFlattenedAttribute("1", "Product1", new ProductAttribute("red", "large")),
+                    new ProductWithFlattenedAttribute("2", "Product2", new ProductAttribute("blue", "medium")),
+                    new ProductWithFlattenedAttribute("3", "Product3", new ProductAttribute("red", "small")),
+                    new ProductWithFlattenedAttribute("4", "Product4", new ProductAttribute("blue", "large"))
             };
             testIndex.indexDocuments(products);
 
@@ -119,14 +114,10 @@ public class FlattenedAggregationTests {
                 mapping.properties("attribute", Property.of(p -> p.flatObject(f -> f))))) {
 
             // ProductAttribute: (color, size)
-            ProductAttribute attribute1 = new ProductAttribute("red", "large");
-            ProductAttribute attribute2 = new ProductAttribute("blue", "medium");
-            ProductAttribute attribute3 = new ProductAttribute("red", "small");
-
             ProductWithFlattenedAttribute[] products = new ProductWithFlattenedAttribute[]{
-                    new ProductWithFlattenedAttribute("1", "Product1", attribute1),
-                    new ProductWithFlattenedAttribute("2", "Product2", attribute2),
-                    new ProductWithFlattenedAttribute("3", "Product3", attribute3)
+                    new ProductWithFlattenedAttribute("1", "Product1", new ProductAttribute("red", "large")),
+                    new ProductWithFlattenedAttribute("2", "Product2", new ProductAttribute("blue", "medium")),
+                    new ProductWithFlattenedAttribute("3", "Product3", new ProductAttribute("red", "small"))
             };
             testIndex.indexDocuments(products);
 

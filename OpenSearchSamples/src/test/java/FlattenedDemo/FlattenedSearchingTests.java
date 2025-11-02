@@ -2,6 +2,7 @@ package FlattenedDemo;
 
 import FlattenedDemo.Documents.*;
 import FlattenedDemo.Documents.ProductAttribute;
+import FlattenedDemo.Documents.ProductSpecification;
 import FlattenedDemo.Documents.ProductWithFlattenedAttribute;
 import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
@@ -65,14 +66,10 @@ public class FlattenedSearchingTests {
 
             // Create documents with attributes containing multiple properties using strongly-typed records
             // ProductAttribute: (color, size)
-            ProductAttribute attribute1 = new ProductAttribute("red", "large");
-            ProductAttribute attribute2 = new ProductAttribute("blue", "medium");
-            ProductAttribute attribute3 = new ProductAttribute("red", "small");
-
             ProductWithFlattenedAttribute[] products = new ProductWithFlattenedAttribute[]{
-                    new ProductWithFlattenedAttribute("1", "Product1", attribute1),
-                    new ProductWithFlattenedAttribute("2", "Product2", attribute2),
-                    new ProductWithFlattenedAttribute("3", "Product3", attribute3)
+                    new ProductWithFlattenedAttribute("1", "Product1", new ProductAttribute("red", "large")),
+                    new ProductWithFlattenedAttribute("2", "Product2", new ProductAttribute("blue", "medium")),
+                    new ProductWithFlattenedAttribute("3", "Product3", new ProductAttribute("red", "small"))
             };
             testIndex.indexDocuments(products);
 
@@ -134,16 +131,11 @@ public class FlattenedSearchingTests {
 
             // Create documents with attributes containing multiple properties
             // ProductAttribute: (color, size)
-            ProductAttribute attribute1 = new ProductAttribute("red", "large");
-            ProductAttribute attribute2 = new ProductAttribute("blue", "medium");
-            ProductAttribute attribute3 = new ProductAttribute("red", "small");
-            ProductAttribute attribute4 = new ProductAttribute("red", "large");
-
             ProductWithFlattenedAttribute[] products = new ProductWithFlattenedAttribute[]{
-                    new ProductWithFlattenedAttribute("1", "Product1", attribute1),
-                    new ProductWithFlattenedAttribute("2", "Product2", attribute2),
-                    new ProductWithFlattenedAttribute("3", "Product3", attribute3),
-                    new ProductWithFlattenedAttribute("4", "Product4", attribute4)
+                    new ProductWithFlattenedAttribute("1", "Product1", new ProductAttribute("red", "large")),
+                    new ProductWithFlattenedAttribute("2", "Product2", new ProductAttribute("blue", "medium")),
+                    new ProductWithFlattenedAttribute("3", "Product3", new ProductAttribute("red", "small")),
+                    new ProductWithFlattenedAttribute("4", "Product4", new ProductAttribute("red", "large"))
             };
             testIndex.indexDocuments(products);
 
@@ -230,26 +222,24 @@ public class FlattenedSearchingTests {
                     mapping.properties("secondaryAttribute", Property.of(p -> p.flatObject(f -> f)));
                 })) {
 
-            // Create documents with both primary and secondary attributes using strongly-typed records
-            // ProductAttribute: (color, size)
-            ProductAttribute primary1 = new ProductAttribute("red", "large");
-            ProductAttribute secondary1 = new ProductAttribute("blue", "medium");
-
-            ProductAttribute primary2 = new ProductAttribute("red", "medium");
-            ProductAttribute secondary2 = new ProductAttribute("green", "small");
-
-            ProductAttribute primary3 = new ProductAttribute("blue", "small");
-            ProductAttribute secondary3 = new ProductAttribute("red", "large");
-
+            // Create documents with both primary and secondary attributes using different DTO types
+            // Primary uses ProductAttribute: (color, size)
+            // Secondary uses ProductSpecification: (brand, category) - different DTO demonstrates flexibility
             ProductWithTwoFlattenedAttributes[] products = new ProductWithTwoFlattenedAttributes[]{
-                    new ProductWithTwoFlattenedAttributes("1", "Product1", primary1, secondary1),
-                    new ProductWithTwoFlattenedAttributes("2", "Product2", primary2, secondary2),
-                    new ProductWithTwoFlattenedAttributes("3", "Product3", primary3, secondary3)
+                    new ProductWithTwoFlattenedAttributes("1", "Product1", 
+                            new ProductAttribute("red", "large"),
+                            new ProductSpecification("BrandA", "Electronics")),
+                    new ProductWithTwoFlattenedAttributes("2", "Product2",
+                            new ProductAttribute("red", "medium"),
+                            new ProductSpecification("BrandB", "Clothing")),
+                    new ProductWithTwoFlattenedAttributes("3", "Product3",
+                            new ProductAttribute("blue", "small"),
+                            new ProductSpecification("BrandA", "Electronics"))
             };
             testIndex.indexDocuments(products);
 
-            // Search for products with primaryAttribute.color="red" AND secondaryAttribute.size="large"
-            // This should work because we're matching across different flattened fields
+            // Search for products with primaryAttribute.color="red" AND secondaryAttribute.brand="BrandA"
+            // This should work because we're matching across different flattened fields with different DTO types
             SearchResponse<ProductWithTwoFlattenedAttributes> result = openSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
@@ -262,8 +252,8 @@ public class FlattenedSearchingTests {
                                             )
                                             .must(m -> m
                                                     .term(t -> t
-                                                            .field("secondaryAttribute.size")
-                                                            .value(FieldValue.of("large"))
+                                                            .field("secondaryAttribute.brand")
+                                                            .value(FieldValue.of("BrandA"))
                                                     )
                                             )
                                     )
@@ -272,10 +262,12 @@ public class FlattenedSearchingTests {
             );
 
             // With flatObject type, matching across multiple flattened fields works correctly
+            // Note: primaryAttribute uses ProductAttribute (color, size) while secondaryAttribute
+            // uses ProductSpecification (brand, category) - demonstrating different DTO types work
             assertThat(result.hits().total().value()).isEqualTo(1);
             assertThat(result.hits().hits().stream()
                     .map(h -> h.source().getId()))
-                    .containsExactly("3"); // Product3 matches: primaryAttribute.color="red" AND secondaryAttribute.size="large"
+                    .containsExactly("1"); // Product1 matches: primaryAttribute.color="red" AND secondaryAttribute.brand="BrandA"
 
             // Search for primaryAttribute.color="red" alone - should match Product1, Product2, and Product3
             SearchResponse<ProductWithTwoFlattenedAttributes> primaryResult = openSearchClient.search(s -> s
@@ -294,22 +286,22 @@ public class FlattenedSearchingTests {
                     .map(h -> h.source().getId()))
                     .containsExactlyInAnyOrder("1", "2");
 
-            // Search for secondaryAttribute.size="large" alone - should match Product1 and Product3
+            // Search for secondaryAttribute.category="Electronics" alone - should match Product1 and Product3
             SearchResponse<ProductWithTwoFlattenedAttributes> secondaryResult = openSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .term(t -> t
-                                            .field("secondaryAttribute.size")
-                                            .value(FieldValue.of("large"))
+                                            .field("secondaryAttribute.category")
+                                            .value(FieldValue.of("Electronics"))
                                     )
                             ),
                     ProductWithTwoFlattenedAttributes.class
             );
 
-            assertThat(secondaryResult.hits().total().value()).isEqualTo(1);
+            assertThat(secondaryResult.hits().total().value()).isEqualTo(2);
             assertThat(secondaryResult.hits().hits().stream()
                     .map(h -> h.source().getId()))
-                    .containsExactly("3");
+                    .containsExactlyInAnyOrder("1", "3");
         }
     }
 
@@ -329,23 +321,19 @@ public class FlattenedSearchingTests {
             // Create documents with nested attribute structures
             // ProductDetails: (attribute: ProductAttribute, description: String)
             // ProductAttribute: (color, size)
-            ProductDetails details1 = new ProductDetails(
-                    new ProductAttribute("red", "large"),
-                    "Premium quality product"
-            );
-            ProductDetails details2 = new ProductDetails(
-                    new ProductAttribute("blue", "medium"),
-                    "Standard quality product"
-            );
-            ProductDetails details3 = new ProductDetails(
-                    new ProductAttribute("red", "small"),
-                    "Compact design"
-            );
-
             ProductWithNestedFlattened[] products = new ProductWithNestedFlattened[]{
-                    new ProductWithNestedFlattened("1", "Product1", details1),
-                    new ProductWithNestedFlattened("2", "Product2", details2),
-                    new ProductWithNestedFlattened("3", "Product3", details3)
+                    new ProductWithNestedFlattened("1", "Product1",
+                            new ProductDetails(
+                                    new ProductAttribute("red", "large"),
+                                    "Premium quality product")),
+                    new ProductWithNestedFlattened("2", "Product2",
+                            new ProductDetails(
+                                    new ProductAttribute("blue", "medium"),
+                                    "Standard quality product")),
+                    new ProductWithNestedFlattened("3", "Product3",
+                            new ProductDetails(
+                                    new ProductAttribute("red", "small"),
+                                    "Compact design"))
             };
             testIndex.indexDocuments(products);
 
@@ -449,14 +437,8 @@ public class FlattenedSearchingTests {
             // Create a document with an array of attributes where each object has multiple properties
             // Using strongly-typed ProductAttribute records
             List<ProductAttribute> attributes = new ArrayList<>();
-            
-            // Object 1: red and large
-            ProductAttribute attr1 = new ProductAttribute("red", "large");
-            attributes.add(attr1);
-            
-            // Object 2: blue and small
-            ProductAttribute attr2 = new ProductAttribute("blue", "small");
-            attributes.add(attr2);
+            attributes.add(new ProductAttribute("red", "large"));  // Object 1: red and large
+            attributes.add(new ProductAttribute("blue", "small"));   // Object 2: blue and small
 
             ProductWithFlattenedArray[] products = new ProductWithFlattenedArray[]{
                     new ProductWithFlattenedArray("1", "Product1", attributes)
@@ -518,5 +500,140 @@ public class FlattenedSearchingTests {
         }
     }
 
+    /**
+     * Demonstrates that flattened mapping does not analyze inputs - sub-properties are indexed
+     * as UNANALYZED keywords, preserving exact values including punctuation and capitalization.
+     * This proves that term vectors incorrectly show tokenization - flattened fields actually
+     * store exact values without any analysis.
+     * 
+     * Key findings:
+     * - Exact matches work: "Red-Metal!" matches "Red-Metal!" (preserved as-is)
+     * - Token searches fail: "red" does NOT match "Red-Metal!" (proving no analysis/tokenization)
+     * - Case matters: "red" does NOT match "Red-Metal!" (proving no normalization)
+     * 
+     * This disproves the misleading term vector output which suggests analysis/tokenization occurs.
+     * Flattened mapping does NOT analyze inputs - values are stored exactly as provided.
+     *
+     * @throws Exception If an I/O error occurs
+     */
+    @Test
+    public void flattenedMapping_DoesNotAnalyzeInputs() throws Exception {
+        // Create a test index with flattened mapping for the attribute field
+        try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
+                mapping.properties("attribute", Property.of(p -> p.flatObject(f -> f))))) {
+
+            // Create and index a product document with punctuation in the attribute
+            // Flattened mapping does not analyze inputs, so these exact values are preserved as-is
+            ProductWithFlattenedAttribute productDocument = new ProductWithFlattenedAttribute(
+                    "1", "Product1", new ProductAttribute("Red-Metal!", "Extra-Large!"));
+            testIndex.indexDocuments(new ProductWithFlattenedAttribute[]{productDocument});
+
+            // Search for the EXACT term with punctuation - this SHOULD work because flattened
+            // mapping does not analyze inputs, so values are preserved exactly as provided
+            SearchResponse<ProductWithFlattenedAttribute> exactMatchSearch = openSearchClient.search(s -> s
+                            .index(testIndex.getName())
+                            .query(q -> q
+                                    .term(t -> t
+                                            .field("attribute.color")
+                                            .value(FieldValue.of("Red-Metal!"))
+                                    )
+                            ),
+                    ProductWithFlattenedAttribute.class
+            );
+
+            // Verify that searching for the exact term with punctuation DOES work
+            // Flattened fields preserve exact values, so "Red-Metal!" matches "Red-Metal!"
+            assertThat(exactMatchSearch.hits().total().value()).isEqualTo(1);
+            assertThat(exactMatchSearch.hits().hits().get(0).source().getId()).isEqualTo("1");
+
+            // Similarly, searching for exact "Extra-Large!" should also work
+            SearchResponse<ProductWithFlattenedAttribute> exactSizeSearch = openSearchClient.search(s -> s
+                            .index(testIndex.getName())
+                            .query(q -> q
+                                    .term(t -> t
+                                            .field("attribute.size")
+                                            .value(FieldValue.of("Extra-Large!"))
+                                    )
+                            ),
+                    ProductWithFlattenedAttribute.class
+            );
+
+            // Verify that searching for exact term DOES work
+            assertThat(exactSizeSearch.hits().total().value()).isEqualTo(1);
+            assertThat(exactSizeSearch.hits().hits().get(0).source().getId()).isEqualTo("1");
+
+            // Now disprove tokenization by searching for individual tokens from term vector output
+            // Term vectors incorrectly show "Red-Metal!" as "red" and "metal", but searches prove this is wrong
+            SearchResponse<ProductWithFlattenedAttribute> tokenRedSearch = openSearchClient.search(s -> s
+                            .index(testIndex.getName())
+                            .query(q -> q
+                                    .term(t -> t
+                                            .field("attribute.color")
+                                            .value(FieldValue.of("red"))
+                                    )
+                            ),
+                    ProductWithFlattenedAttribute.class
+            );
+
+            // Searching for "red" should return NO results - proving no tokenization occurs
+            // If tokenization happened, "red" would match "Red-Metal!", but it doesn't
+            assertThat(tokenRedSearch.hits().total().value()).isEqualTo(0);
+            assertThat(tokenRedSearch.hits().hits()).isEmpty();
+
+            // Search for "metal" token - should also return NO results
+            SearchResponse<ProductWithFlattenedAttribute> tokenMetalSearch = openSearchClient.search(s -> s
+                            .index(testIndex.getName())
+                            .query(q -> q
+                                    .term(t -> t
+                                            .field("attribute.color")
+                                            .value(FieldValue.of("metal"))
+                                    )
+                            ),
+                    ProductWithFlattenedAttribute.class
+            );
+
+            // Searching for "metal" should return NO results - proving no tokenization
+            assertThat(tokenMetalSearch.hits().total().value()).isEqualTo(0);
+            assertThat(tokenMetalSearch.hits().hits()).isEmpty();
+
+            // Search for "extra" token from size - should return NO results
+            SearchResponse<ProductWithFlattenedAttribute> tokenExtraSearch = openSearchClient.search(s -> s
+                            .index(testIndex.getName())
+                            .query(q -> q
+                                    .term(t -> t
+                                            .field("attribute.size")
+                                            .value(FieldValue.of("extra"))
+                                    )
+                            ),
+                    ProductWithFlattenedAttribute.class
+            );
+
+            // Searching for "extra" should return NO results - proving no tokenization
+            assertThat(tokenExtraSearch.hits().total().value()).isEqualTo(0);
+            assertThat(tokenExtraSearch.hits().hits()).isEmpty();
+
+            // Search for "large" token from size - should return NO results
+            SearchResponse<ProductWithFlattenedAttribute> tokenLargeSearch = openSearchClient.search(s -> s
+                            .index(testIndex.getName())
+                            .query(q -> q
+                                    .term(t -> t
+                                            .field("attribute.size")
+                                            .value(FieldValue.of("large"))
+                                    )
+                            ),
+                    ProductWithFlattenedAttribute.class
+            );
+
+            // Searching for "large" should return NO results - proving no tokenization
+            assertThat(tokenLargeSearch.hits().total().value()).isEqualTo(0);
+            assertThat(tokenLargeSearch.hits().hits()).isEmpty();
+
+            // This demonstrates that flattened fields are UNANALYZED keywords that preserve exact values.
+            // Term vectors incorrectly show tokenization, but search behavior proves values are stored exactly.
+            // You must search using the exact value as indexed, including punctuation and capitalization.
+        }
+    }
+
 }
+
 
