@@ -69,8 +69,6 @@ public class OpenSearchTestIndex implements AutoCloseable {
         requestBuilder.settings(settingsBuilder.build());
 
         var request = requestBuilder.build();
-        System.out.println("Create Index Request JSON:");
-        System.out.println(request.toJsonString());
         OpenSearchRequestLogger.LogRequestJson(request);
         CreateIndexResponse response = openSearchClient.indices().create(request);
 
@@ -100,7 +98,9 @@ public class OpenSearchTestIndex implements AutoCloseable {
             );
         });
 
-        var bulkResponse = openSearchClient.bulk(bulkRequest.refresh(Refresh.True).build());
+        var builtRequest = bulkRequest.refresh(Refresh.True).build();
+        OpenSearchRequestLogger.LogRequestJson(openSearchClient, builtRequest);
+        var bulkResponse = openSearchClient.bulk(builtRequest);
 
         if (bulkResponse.errors()) {
             throw new IOException("Failed to index documents: " + bulkResponse.toString());

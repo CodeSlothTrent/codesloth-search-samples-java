@@ -1,5 +1,6 @@
 package TestInfrastructure;
 
+import com.fasterxml.jackson.core.JsonGenerator;
 import org.apache.logging.log4j.LogManager;
 import org.opensearch.client.json.JsonpMapper;
 import org.opensearch.client.json.PlainJsonSerializable;
@@ -19,6 +20,10 @@ public class OpenSearchRequestLogger {
             JsonpMapper jsonpMapper = client._transport().jsonpMapper();
             StringWriter stringWriter = new StringWriter();
             try (var jsonGenerator = jsonpMapper.jsonProvider().createGenerator(stringWriter)) {
+                // Configure pretty printing if using Jackson
+                if (jsonGenerator instanceof JsonGenerator) {
+                    ((JsonGenerator) jsonGenerator).useDefaultPrettyPrinter();
+                }
                 jsonpMapper.serialize(request, jsonGenerator);
             }
             String jsonRequest = stringWriter.toString();
@@ -29,19 +34,20 @@ public class OpenSearchRequestLogger {
     }
 
     public static <T> void LogSearchRequest(OpenSearchClient client, T request) {
-        System.out.println("Search Request:");
         logger.info("Search Request:");
         try {
             JsonpMapper jsonpMapper = client._transport().jsonpMapper();
             StringWriter stringWriter = new StringWriter();
             try (var jsonGenerator = jsonpMapper.jsonProvider().createGenerator(stringWriter)) {
+                // Configure pretty printing if using Jackson
+                if (jsonGenerator instanceof JsonGenerator) {
+                    ((JsonGenerator) jsonGenerator).useDefaultPrettyPrinter();
+                }
                 jsonpMapper.serialize(request, jsonGenerator);
             }
             String jsonRequest = stringWriter.toString();
-            System.out.println(jsonRequest);
             logger.info(jsonRequest);
         } catch (Exception e) {
-            System.err.println("Failed to serialize request: " + e.getMessage());
             logger.error("Failed to serialize request: " + e.getMessage(), e);
         }
     }
@@ -51,6 +57,10 @@ public class OpenSearchRequestLogger {
             JsonpMapper jsonpMapper = client._transport().jsonpMapper();
             StringWriter stringWriter = new StringWriter();
             try (var jsonGenerator = jsonpMapper.jsonProvider().createGenerator(stringWriter)) {
+                // Configure pretty printing if using Jackson
+                if (jsonGenerator instanceof JsonGenerator) {
+                    ((JsonGenerator) jsonGenerator).useDefaultPrettyPrinter();
+                }
                 jsonpMapper.serialize(response, jsonGenerator);
             }
             String jsonResponse = stringWriter.toString();
@@ -61,19 +71,20 @@ public class OpenSearchRequestLogger {
     }
 
     public static <T> void LogSearchResponse(OpenSearchClient client, T response) {
-        System.out.println("Search Response:");
         logger.info("Search Response:");
         try {
             JsonpMapper jsonpMapper = client._transport().jsonpMapper();
             StringWriter stringWriter = new StringWriter();
             try (var jsonGenerator = jsonpMapper.jsonProvider().createGenerator(stringWriter)) {
+                // Configure pretty printing if using Jackson
+                if (jsonGenerator instanceof JsonGenerator) {
+                    ((JsonGenerator) jsonGenerator).useDefaultPrettyPrinter();
+                }
                 jsonpMapper.serialize(response, jsonGenerator);
             }
             String jsonResponse = stringWriter.toString();
-            System.out.println(jsonResponse);
             logger.info(jsonResponse);
         } catch (Exception e) {
-            System.err.println("Failed to serialize response: " + e.getMessage());
             logger.error("Failed to serialize response: " + e.getMessage(), e);
         }
     }

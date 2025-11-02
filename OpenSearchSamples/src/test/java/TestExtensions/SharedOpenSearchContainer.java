@@ -13,6 +13,7 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.Wait;
 
 import java.time.Duration;
+import java.util.Arrays;
 
 /**
  * Singleton class that manages shared OpenSearch and OpenSearch Dashboards containers across all test classes.
@@ -25,10 +26,10 @@ import java.time.Duration;
  * Each test class should create its own unique index to avoid conflicts.
  * </p>
  * <p>
- * Standardized ports are used:
+ * Fixed ports are used (mapped to default ports on the host):
  * <ul>
- *     <li>OpenSearch: 9200 (HTTP)</li>
- *     <li>OpenSearch Dashboards: 5601 (HTTP)</li>
+ *     <li>OpenSearch: 9200 (HTTP) - always available at http://localhost:9200</li>
+ *     <li>OpenSearch Dashboards: 5601 (HTTP) - always available at http://localhost:5601</li>
  * </ul>
  * </p>
  */
@@ -133,12 +134,13 @@ public class SharedOpenSearchContainer {
         opensearchContainer.withStartupTimeout(Duration.ofMinutes(2));
         opensearchContainer.withNetwork(network);
         opensearchContainer.withNetworkAliases(OPENSEARCH_CONTAINER_NAME);
+        // Bind container port 9200 to host port 9200 (default OpenSearch port)
+        opensearchContainer.setPortBindings(Arrays.asList(OPENSEARCH_HTTP_PORT + ":" + OPENSEARCH_HTTP_PORT));
         
         logger.info("Starting shared OpenSearch container...");
         opensearchContainer.start();
         
-        // Configure fixed port binding after container is created but before final startup
-        // Note: We'll use the mapped port instead to avoid interfering with startup checks
+        // Port is now fixed, so mapped port should equal the fixed port
         int mappedPort = opensearchContainer.getMappedPort(OPENSEARCH_HTTP_PORT);
         logger.info("Shared OpenSearch container started successfully. Internal port: " + OPENSEARCH_HTTP_PORT + ", Mapped port: " + mappedPort);
         
@@ -148,6 +150,8 @@ public class SharedOpenSearchContainer {
         dashboardsContainer.withNetwork(network);
         dashboardsContainer.withNetworkAliases(DASHBOARDS_CONTAINER_NAME);
         dashboardsContainer.withExposedPorts(DASHBOARDS_HTTP_PORT);
+        // Bind container port 5601 to host port 5601 (default OpenSearch Dashboards port)
+        dashboardsContainer.setPortBindings(Arrays.asList(DASHBOARDS_HTTP_PORT + ":" + DASHBOARDS_HTTP_PORT));
         dashboardsContainer.withEnv("OPENSEARCH_HOSTS", "http://" + OPENSEARCH_CONTAINER_NAME + ":" + OPENSEARCH_HTTP_PORT);
         dashboardsContainer.withEnv("DISABLE_SECURITY_DASHBOARDS_PLUGIN", "true");
         dashboardsContainer.waitingFor(Wait.forHttp("/").forStatusCode(200).withStartupTimeout(Duration.ofMinutes(2)));
@@ -157,7 +161,7 @@ public class SharedOpenSearchContainer {
         int dashboardsMappedPort = dashboardsContainer.getMappedPort(DASHBOARDS_HTTP_PORT);
         logger.info("OpenSearch Dashboards container started successfully. Internal port: " + DASHBOARDS_HTTP_PORT + ", Mapped port: " + dashboardsMappedPort);
         
-        // Create client using mapped port (which may differ from internal port)
+        // Create client using fixed port (now matches internal port)
         String host = opensearchContainer.getHost();
         int clientPort = opensearchContainer.getMappedPort(OPENSEARCH_HTTP_PORT);
         logger.info("OpenSearch host: " + host + ", mapped port: " + clientPort);
