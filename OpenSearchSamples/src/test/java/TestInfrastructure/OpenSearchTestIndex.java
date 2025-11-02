@@ -69,6 +69,8 @@ public class OpenSearchTestIndex implements AutoCloseable {
         requestBuilder.settings(settingsBuilder.build());
 
         var request = requestBuilder.build();
+        System.out.println("Create Index Request JSON:");
+        System.out.println(request.toJsonString());
         OpenSearchRequestLogger.LogRequestJson(request);
         CreateIndexResponse response = openSearchClient.indices().create(request);
 

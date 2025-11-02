@@ -4,6 +4,7 @@ import FlattenedDemo.Documents.*;
 import FlattenedDemo.Documents.ProductAttribute;
 import FlattenedDemo.Documents.ProductSpecification;
 import FlattenedDemo.Documents.ProductWithFlattenedAttribute;
+import TestExtensions.LoggingOpenSearchClient;
 import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
 import TestInfrastructure.OpenSearchIndexFixture;
@@ -13,7 +14,6 @@ import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.FieldValue;
 import org.opensearch.client.opensearch._types.mapping.Property;
 import org.opensearch.client.opensearch.core.SearchResponse;
@@ -37,16 +37,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class FlattenedSearchingTests {
     private static final Logger logger = LogManager.getLogger(FlattenedSearchingTests.class);
 
-    private OpenSearchClient openSearchClient;
+    private LoggingOpenSearchClient loggingOpenSearchClient;
     private OpenSearchIndexFixture fixture;
 
     public FlattenedSearchingTests(OpenSearchSharedResource openSearchSharedResource) {
-        this.openSearchClient = openSearchSharedResource.getOpenSearchClient();
+        this.loggingOpenSearchClient = openSearchSharedResource.getLoggingOpenSearchClient();
     }
 
     @BeforeEach
     public void setup() {
-        fixture = new OpenSearchIndexFixture(openSearchClient);
+        fixture = new OpenSearchIndexFixture(loggingOpenSearchClient.getClient());
     }
 
     /**
@@ -74,7 +74,7 @@ public class FlattenedSearchingTests {
             testIndex.indexDocuments(products);
 
             // Search by attribute.color using term query
-            SearchResponse<ProductWithFlattenedAttribute> result = openSearchClient.search(s -> s
+            SearchResponse<ProductWithFlattenedAttribute> result = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .term(t -> t
@@ -93,7 +93,7 @@ public class FlattenedSearchingTests {
                     .containsExactly("1", "3"); // Product1 and Product3 have red color
 
             // Search by attribute.size using dotted notation
-            SearchResponse<ProductWithFlattenedAttribute> sizeResult = openSearchClient.search(s -> s
+            SearchResponse<ProductWithFlattenedAttribute> sizeResult = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .term(t -> t
@@ -141,7 +141,7 @@ public class FlattenedSearchingTests {
 
             // Search for products where attribute.color="red" AND attribute.size="large"
             // This should work because we're matching multiple properties from the same flattened object
-            SearchResponse<ProductWithFlattenedAttribute> result = openSearchClient.search(s -> s
+            SearchResponse<ProductWithFlattenedAttribute> result = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .bool(b -> b
@@ -179,7 +179,7 @@ public class FlattenedSearchingTests {
                     .isTrue();
 
             // Test with different combination: color="red" AND size="small"
-            SearchResponse<ProductWithFlattenedAttribute> smallResult = openSearchClient.search(s -> s
+            SearchResponse<ProductWithFlattenedAttribute> smallResult = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .bool(b -> b
@@ -240,7 +240,7 @@ public class FlattenedSearchingTests {
 
             // Search for products with primaryAttribute.color="red" AND secondaryAttribute.brand="BrandA"
             // This should work because we're matching across different flattened fields with different DTO types
-            SearchResponse<ProductWithTwoFlattenedAttributes> result = openSearchClient.search(s -> s
+            SearchResponse<ProductWithTwoFlattenedAttributes> result = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .bool(b -> b
@@ -270,7 +270,7 @@ public class FlattenedSearchingTests {
                     .containsExactly("1"); // Product1 matches: primaryAttribute.color="red" AND secondaryAttribute.brand="BrandA"
 
             // Search for primaryAttribute.color="red" alone - should match Product1, Product2, and Product3
-            SearchResponse<ProductWithTwoFlattenedAttributes> primaryResult = openSearchClient.search(s -> s
+            SearchResponse<ProductWithTwoFlattenedAttributes> primaryResult = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .term(t -> t
@@ -287,7 +287,7 @@ public class FlattenedSearchingTests {
                     .containsExactlyInAnyOrder("1", "2");
 
             // Search for secondaryAttribute.category="Electronics" alone - should match Product1 and Product3
-            SearchResponse<ProductWithTwoFlattenedAttributes> secondaryResult = openSearchClient.search(s -> s
+            SearchResponse<ProductWithTwoFlattenedAttributes> secondaryResult = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .term(t -> t
@@ -338,7 +338,7 @@ public class FlattenedSearchingTests {
             testIndex.indexDocuments(products);
 
             // Search using multi-level dotted notation: details.attribute.color
-            SearchResponse<ProductWithNestedFlattened> result = openSearchClient.search(s -> s
+            SearchResponse<ProductWithNestedFlattened> result = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .term(t -> t
@@ -357,7 +357,7 @@ public class FlattenedSearchingTests {
                     .containsExactly("1", "3"); // Product1 and Product3 have red color in nested attribute
 
             // Search using another nested property: details.attribute.size
-            SearchResponse<ProductWithNestedFlattened> sizeResult = openSearchClient.search(s -> s
+            SearchResponse<ProductWithNestedFlattened> sizeResult = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .term(t -> t
@@ -372,7 +372,7 @@ public class FlattenedSearchingTests {
             assertThat(sizeResult.hits().hits().get(0).source().getId()).isEqualTo("1");
 
             // Search using a direct property of details: details.description
-            SearchResponse<ProductWithNestedFlattened> descriptionResult = openSearchClient.search(s -> s
+            SearchResponse<ProductWithNestedFlattened> descriptionResult = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .term(t -> t
@@ -387,7 +387,7 @@ public class FlattenedSearchingTests {
             assertThat(descriptionResult.hits().hits().get(0).source().getId()).isEqualTo("1");
 
             // Search combining nested and direct properties: details.attribute.color="red" AND details.description="Compact design"
-            SearchResponse<ProductWithNestedFlattened> combinedResult = openSearchClient.search(s -> s
+            SearchResponse<ProductWithNestedFlattened> combinedResult = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .bool(b -> b
@@ -414,8 +414,8 @@ public class FlattenedSearchingTests {
     }
 
     /**
-     * Demonstrates the limitation that an array of flattened objects
-     * cannot match multiple values from the same object in the array.
+     * Demonstrates that flattened arrays can match multiple values from different objects
+     * in the array, but cannot reliably match multiple values from the same object.
      * 
      * When you have an array like:
      * [
@@ -423,8 +423,13 @@ public class FlattenedSearchingTests {
      *   {color: "blue", size: "small"}
      * ]
      * 
-     * You cannot find documents where a single object has both color="red" AND size="large"
-     * using flattened fields. You need nested or join types for this.
+     * Searching for color="red" AND size="small" WILL match because both values exist
+     * in the array (even though they're from different objects). This works because
+     * flattened fields don't preserve object boundaries - they treat all values
+     * across all array objects as a flat collection.
+     * 
+     * However, for accurate matching of multiple properties from the same array object,
+     * you need nested or join field types.
      *
      * @throws Exception If an I/O error occurs
      */
@@ -445,10 +450,12 @@ public class FlattenedSearchingTests {
             };
             testIndex.indexDocuments(products);
 
-            // Try to match a single object with both color="red" AND size="large"
-            // This should NOT work with flattened fields because flattened treats arrays
-            // as separate values, not as structured objects
-            SearchResponse<ProductWithFlattenedArray> bothResult = openSearchClient.search(s -> s
+            // Search for color="red" AND size="small" from DIFFERENT objects
+            // This WILL match because flattened fields treat arrays as flat collections
+            // - attributes.color="red" matches (from first object)
+            // - attributes.size="small" matches (from second object)
+            // Both values exist in the array, so the document matches even though they're from different objects
+            SearchResponse<ProductWithFlattenedArray> differentObjectsResult = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .bool(b -> b
@@ -461,7 +468,7 @@ public class FlattenedSearchingTests {
                                             .must(m -> m
                                                     .term(t -> t
                                                             .field("attributes.size")
-                                                            .value(FieldValue.of("large"))
+                                                            .value(FieldValue.of("small"))
                                                     )
                                             )
                                     )
@@ -469,19 +476,13 @@ public class FlattenedSearchingTests {
                     ProductWithFlattenedArray.class
             );
 
-            // With flattened fields, this query will incorrectly match because:
-            // - attributes.color="red" matches (from first object)
-            // - attributes.size="large" matches (from first object)
-            // But flattened doesn't preserve the relationship that these come from the same object
-            // So it matches even though they are in the same object
-            // NOTE: This is a known limitation - for proper matching, you need nested or join types
+            // This SHOULD match because both "red" and "small" exist in the array
+            // (even though they're from different objects)
+            assertThat(differentObjectsResult.hits().total().value()).isEqualTo(1);
+            assertThat(differentObjectsResult.hits().hits().get(0).source().getId()).isEqualTo("1");
             
-            // Actually, let's verify what happens - it might match, but it shouldn't be reliable
-            // The behavior depends on how OpenSearch handles flattened arrays internally
-            logger.info("Result count for both attributes: {}", bothResult.hits().total().value());
-            
-            // However, we can verify that individual searches work
-            SearchResponse<ProductWithFlattenedArray> colorResult = openSearchClient.search(s -> s
+            // Verify that individual searches also work
+            SearchResponse<ProductWithFlattenedArray> colorResult = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .term(t -> t
@@ -492,9 +493,11 @@ public class FlattenedSearchingTests {
                     ProductWithFlattenedArray.class
             );
 
-            assertThat(colorResult.hits().total().value()).isGreaterThanOrEqualTo(1);
+            assertThat(colorResult.hits().total().value()).isEqualTo(1);
             
-            // This demonstrates the limitation - flattened arrays don't preserve object boundaries
+            // This demonstrates that flattened arrays don't preserve object boundaries:
+            // - Matching values from DIFFERENT objects works (as shown above)
+            // - But you cannot reliably ensure values come from the SAME object
             // For accurate matching of multiple properties from the same array object,
             // you must use nested or join field types
         }
@@ -530,7 +533,7 @@ public class FlattenedSearchingTests {
 
             // Search for the EXACT term with punctuation - this SHOULD work because flattened
             // mapping does not analyze inputs, so values are preserved exactly as provided
-            SearchResponse<ProductWithFlattenedAttribute> exactMatchSearch = openSearchClient.search(s -> s
+            SearchResponse<ProductWithFlattenedAttribute> exactMatchSearch = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .term(t -> t
@@ -547,7 +550,7 @@ public class FlattenedSearchingTests {
             assertThat(exactMatchSearch.hits().hits().get(0).source().getId()).isEqualTo("1");
 
             // Similarly, searching for exact "Extra-Large!" should also work
-            SearchResponse<ProductWithFlattenedAttribute> exactSizeSearch = openSearchClient.search(s -> s
+            SearchResponse<ProductWithFlattenedAttribute> exactSizeSearch = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .term(t -> t
@@ -564,7 +567,7 @@ public class FlattenedSearchingTests {
 
             // Now disprove tokenization by searching for individual tokens from term vector output
             // Term vectors incorrectly show "Red-Metal!" as "red" and "metal", but searches prove this is wrong
-            SearchResponse<ProductWithFlattenedAttribute> tokenRedSearch = openSearchClient.search(s -> s
+            SearchResponse<ProductWithFlattenedAttribute> tokenRedSearch = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .term(t -> t
@@ -581,7 +584,7 @@ public class FlattenedSearchingTests {
             assertThat(tokenRedSearch.hits().hits()).isEmpty();
 
             // Search for "metal" token - should also return NO results
-            SearchResponse<ProductWithFlattenedAttribute> tokenMetalSearch = openSearchClient.search(s -> s
+            SearchResponse<ProductWithFlattenedAttribute> tokenMetalSearch = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .term(t -> t
@@ -597,7 +600,7 @@ public class FlattenedSearchingTests {
             assertThat(tokenMetalSearch.hits().hits()).isEmpty();
 
             // Search for "extra" token from size - should return NO results
-            SearchResponse<ProductWithFlattenedAttribute> tokenExtraSearch = openSearchClient.search(s -> s
+            SearchResponse<ProductWithFlattenedAttribute> tokenExtraSearch = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .term(t -> t
@@ -613,7 +616,7 @@ public class FlattenedSearchingTests {
             assertThat(tokenExtraSearch.hits().hits()).isEmpty();
 
             // Search for "large" token from size - should return NO results
-            SearchResponse<ProductWithFlattenedAttribute> tokenLargeSearch = openSearchClient.search(s -> s
+            SearchResponse<ProductWithFlattenedAttribute> tokenLargeSearch = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .term(t -> t

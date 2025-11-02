@@ -2,6 +2,7 @@ package FlattenedDemo;
 
 import FlattenedDemo.Documents.ProductAttribute;
 import FlattenedDemo.Documents.ProductWithFlattenedAttribute;
+import TestExtensions.LoggingOpenSearchClient;
 import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
 import TestInfrastructure.OpenSearchIndexFixture;
@@ -9,7 +10,6 @@ import TestInfrastructure.OpenSearchTestIndex;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.mapping.Property;
 import org.opensearch.client.opensearch.core.GetResponse;
 import org.opensearch.client.opensearch.core.TermvectorsResponse;
@@ -30,16 +30,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ExtendWith(OpenSearchResourceManagementExtension.class)
 public class FlattenedIndexingTests {
 
-    private OpenSearchClient openSearchClient;
+    private LoggingOpenSearchClient loggingOpenSearchClient;
     private OpenSearchIndexFixture fixture;
 
     public FlattenedIndexingTests(OpenSearchSharedResource openSearchSharedResource) {
-        this.openSearchClient = openSearchSharedResource.getOpenSearchClient();
+        this.loggingOpenSearchClient = openSearchSharedResource.getLoggingOpenSearchClient();
     }
 
     @BeforeEach
     public void setup() {
-        fixture = new OpenSearchIndexFixture(openSearchClient);
+        fixture = new OpenSearchIndexFixture(loggingOpenSearchClient.getClient());
     }
 
     /**
@@ -61,7 +61,7 @@ public class FlattenedIndexingTests {
             testIndex.indexDocuments(new ProductWithFlattenedAttribute[]{productDocument});
 
             // Retrieve the document
-            GetResponse<ProductWithFlattenedAttribute> result = openSearchClient.get(g -> g
+            GetResponse<ProductWithFlattenedAttribute> result = loggingOpenSearchClient.getClient().get(g -> g
                     .index(testIndex.getName())
                     .id(productDocument.getId()),
                     ProductWithFlattenedAttribute.class
@@ -104,7 +104,7 @@ public class FlattenedIndexingTests {
             testIndex.indexDocuments(new ProductWithFlattenedAttribute[]{productDocument});
 
             // This demonstrates that no tokens are created at this level
-            TermvectorsResponse topLevelResults = openSearchClient.termvectors(t -> t
+            TermvectorsResponse topLevelResults = loggingOpenSearchClient.getClient().termvectors(t -> t
                     .index(testIndex.getName())
                     .id(productDocument.getId())
                     .fields("attribute")
@@ -121,7 +121,7 @@ public class FlattenedIndexingTests {
             // Get term vectors for the color sub-property
             // NOTE: Term vectors show INCORRECT results - they suggest tokenization happens,
             // but flattened fields actually store unanalyzed keywords preserving exact values
-            TermvectorsResponse colorResult = openSearchClient.termvectors(t -> t
+            TermvectorsResponse colorResult = loggingOpenSearchClient.getClient().termvectors(t -> t
                     .index(testIndex.getName())
                     .id(productDocument.getId())
                     .fields("attribute.color")
@@ -146,7 +146,7 @@ public class FlattenedIndexingTests {
             assertThat(colorTerms.get("metal").termFreq()).isEqualTo(1);
 
             // Get term vectors for the size sub-property
-            TermvectorsResponse sizeResult = openSearchClient.termvectors(t -> t
+            TermvectorsResponse sizeResult = loggingOpenSearchClient.getClient().termvectors(t -> t
                     .index(testIndex.getName())
                     .id(productDocument.getId())
                     .fields("attribute.size")

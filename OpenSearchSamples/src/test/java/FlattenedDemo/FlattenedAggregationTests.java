@@ -2,6 +2,7 @@ package FlattenedDemo;
 
 import FlattenedDemo.Documents.ProductAttribute;
 import FlattenedDemo.Documents.ProductWithFlattenedAttribute;
+import TestExtensions.LoggingOpenSearchClient;
 import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
 import TestInfrastructure.OpenSearchIndexFixture;
@@ -11,11 +12,9 @@ import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.aggregations.StringTermsAggregate;
 import org.opensearch.client.opensearch._types.aggregations.StringTermsBucket;
 import org.opensearch.client.opensearch._types.mapping.Property;
-import org.opensearch.client.opensearch.core.SearchRequest;
 import org.opensearch.client.opensearch.core.SearchResponse;
 
 import java.util.Map;
@@ -34,16 +33,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class FlattenedAggregationTests {
     private static final Logger logger = LogManager.getLogger(FlattenedAggregationTests.class);
 
-    private OpenSearchClient openSearchClient;
+    private LoggingOpenSearchClient loggingOpenSearchClient;
     private OpenSearchIndexFixture fixture;
 
     public FlattenedAggregationTests(OpenSearchSharedResource openSearchSharedResource) {
-        this.openSearchClient = openSearchSharedResource.getOpenSearchClient();
+        this.loggingOpenSearchClient = openSearchSharedResource.getLoggingOpenSearchClient();
     }
 
     @BeforeEach
     public void setup() {
-        fixture = new OpenSearchIndexFixture(openSearchClient);
+        fixture = new OpenSearchIndexFixture(loggingOpenSearchClient.getClient());
     }
 
     /**
@@ -67,20 +66,17 @@ public class FlattenedAggregationTests {
             };
             testIndex.indexDocuments(products);
 
-            // Create a search request with terms aggregation on attribute.color
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            // Execute the search request with terms aggregation on attribute.color
+            SearchResponse<ProductWithFlattenedAttribute> response = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
                     .size(0) // We do not want any documents returned; just the aggregations
                     .aggregations("color_counts", a -> a
                             .terms(t -> t
                                     .field("attribute.color")
-                                    .size(10)
+                                            .size(10)
                             )
-                    )
-                    .build();
-
-            // Execute the search request
-            SearchResponse<ProductWithFlattenedAttribute> response = openSearchClient.search(searchRequest, ProductWithFlattenedAttribute.class);
+                    ),
+                    ProductWithFlattenedAttribute.class);
 
             // Verify the results
             assertThat(response.aggregations()).isNotNull();
@@ -122,7 +118,7 @@ public class FlattenedAggregationTests {
             testIndex.indexDocuments(products);
 
             // Aggregate on size
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            SearchResponse<ProductWithFlattenedAttribute> response = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
                     .size(0)
                     .aggregations("size_counts", a -> a
@@ -130,10 +126,8 @@ public class FlattenedAggregationTests {
                                     .field("attribute.size")
                                     .size(10)
                             )
-                    )
-                    .build();
-
-            SearchResponse<ProductWithFlattenedAttribute> response = openSearchClient.search(searchRequest, ProductWithFlattenedAttribute.class);
+                    ),
+                    ProductWithFlattenedAttribute.class);
 
             assertThat(response.aggregations()).isNotNull();
             StringTermsAggregate termsAgg = response.aggregations().get("size_counts").sterms();
