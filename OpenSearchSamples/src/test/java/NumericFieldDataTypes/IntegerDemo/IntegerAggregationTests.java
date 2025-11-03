@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.opensearch.client.opensearch._types.aggregations.CardinalityAggregate;
+import org.opensearch.client.opensearch._types.aggregations.LongTermsBucketKey;
 import org.opensearch.client.opensearch._types.aggregations.LongTermsAggregate;
 import org.opensearch.client.opensearch._types.mapping.Property;
 import org.opensearch.client.opensearch.core.SearchResponse;
@@ -43,6 +44,58 @@ public class IntegerAggregationTests {
     @BeforeEach
     public void setup() {
         fixture = new OpenSearchIndexFixture(loggingOpenSearchClient.getClient(), loggingOpenSearchClient.getLogger());
+    }
+
+    /**
+     * Helper method to extract Long value from LongTermsBucketKey.
+     * Workaround for incomplete API (similar to GitHub issue #1478).
+     * Uses reflection to access the internal value field.
+     */
+    private Long extractLongFromKey(LongTermsBucketKey key) {
+        try {
+            // Try to access the value field via reflection
+            // LongTermsBucketKey may be a record or have accessible fields
+            java.lang.reflect.Field[] fields = key.getClass().getDeclaredFields();
+            for (java.lang.reflect.Field field : fields) {
+                field.setAccessible(true);
+                Object value = field.get(key);
+                if (value instanceof Long) {
+                    return (Long) value;
+                } else if (value instanceof Number) {
+                    return ((Number) value).longValue();
+                }
+            }
+            
+            // Try common field names
+            String[] possibleFieldNames = {"value", "longValue", "_value", "key"};
+            for (String fieldName : possibleFieldNames) {
+                try {
+                    java.lang.reflect.Field field = key.getClass().getDeclaredField(fieldName);
+                    field.setAccessible(true);
+                    Object value = field.get(key);
+                    if (value instanceof Long) {
+                        return (Long) value;
+                    } else if (value instanceof Number) {
+                        return ((Number) value).longValue();
+                    }
+                } catch (NoSuchFieldException e) {
+                    // Continue trying other fields
+                }
+            }
+            
+            // If reflection fails, try toString() parsing as fallback
+            String keyStr = key.toString();
+            if (!keyStr.contains("@")) {
+                return Long.parseLong(keyStr);
+            }
+            
+            throw new UnsupportedOperationException(
+                "Unable to extract Long value from LongTermsBucketKey. " +
+                "This may be unimplemented functionality (similar to GitHub issue #1478). " +
+                "toString() returns: " + keyStr);
+        } catch (IllegalAccessException | NumberFormatException e) {
+            throw new RuntimeException("Failed to extract Long from LongTermsBucketKey", e);
+        }
     }
 
     /**
@@ -85,15 +138,15 @@ public class IntegerAggregationTests {
             LongTermsAggregate termsAgg = response.aggregations().get("stock_counts").lterms();
 
             // Extract each term and its associated number of hits
-            Map<String, Long> bucketCounts = termsAgg.buckets().array().stream()
+            Map<Long, Long> bucketCounts = termsAgg.buckets().array().stream()
                     .collect(Collectors.toMap(
-                            bucket -> bucket.key().toString(),
+                            bucket -> extractLongFromKey(bucket.key()),
                             bucket -> bucket.docCount()
                     ));
 
             // Format the results for verification (sorted by key for consistent ordering)
             String formattedResults = bucketCounts.entrySet().stream()
-                    .sorted(Map.Entry.<String, Long>comparingByKey(Comparator.comparing(Long::parseLong)))
+                    .sorted(Map.Entry.comparingByKey())
                     .map(entry -> entry.getKey() + ":" + entry.getValue())
                     .collect(Collectors.joining(", "));
 
@@ -190,15 +243,15 @@ public class IntegerAggregationTests {
             LongTermsAggregate termsAgg = response.aggregations().get("stock_counts").lterms();
 
             // Extract each term and its associated number of hits
-            Map<String, Long> bucketCounts = termsAgg.buckets().array().stream()
+            Map<Long, Long> bucketCounts = termsAgg.buckets().array().stream()
                     .collect(Collectors.toMap(
-                            bucket -> bucket.key().toString(),
+                            bucket -> extractLongFromKey(bucket.key()),
                             bucket -> bucket.docCount()
                     ));
 
             // Format the results for verification (sorted by key for consistent ordering)
             String formattedResults = bucketCounts.entrySet().stream()
-                    .sorted(Map.Entry.<String, Long>comparingByKey(Comparator.comparing(Long::parseLong)))
+                    .sorted(Map.Entry.comparingByKey())
                     .map(entry -> entry.getKey() + ":" + entry.getValue())
                     .collect(Collectors.joining(", "));
 
@@ -247,15 +300,15 @@ public class IntegerAggregationTests {
             LongTermsAggregate termsAgg = response.aggregations().get("stock_counts").lterms();
 
             // Extract each term and its associated number of hits
-            Map<String, Long> bucketCounts = termsAgg.buckets().array().stream()
+            Map<Long, Long> bucketCounts = termsAgg.buckets().array().stream()
                     .collect(Collectors.toMap(
-                            bucket -> bucket.key().toString(),
+                            bucket -> extractLongFromKey(bucket.key()),
                             bucket -> bucket.docCount()
                     ));
 
             // Format the results for verification
             String formattedResults = bucketCounts.entrySet().stream()
-                    .sorted(Map.Entry.<String, Long>comparingByKey(Comparator.comparing(Long::parseLong)))
+                    .sorted(Map.Entry.comparingByKey())
                     .map(entry -> entry.getKey() + ":" + entry.getValue())
                     .collect(Collectors.joining(", "));
 
@@ -304,9 +357,9 @@ public class IntegerAggregationTests {
             LongTermsAggregate termsAgg = response.aggregations().get("stock_counts").lterms();
 
             // Extract each term and its associated number of hits
-            Map<String, Long> bucketCounts = termsAgg.buckets().array().stream()
+            Map<Long, Long> bucketCounts = termsAgg.buckets().array().stream()
                     .collect(Collectors.toMap(
-                            bucket -> bucket.key().toString(),
+                            bucket -> extractLongFromKey(bucket.key()),
                             bucket -> bucket.docCount()
                     ));
 

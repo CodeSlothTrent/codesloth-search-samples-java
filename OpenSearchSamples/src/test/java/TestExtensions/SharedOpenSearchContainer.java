@@ -166,13 +166,14 @@ public class SharedOpenSearchContainer {
         int clientPort = opensearchContainer.getMappedPort(OPENSEARCH_HTTP_PORT);
         logger.info("OpenSearch host: " + host + ", mapped port: " + clientPort);
         
-        // Configure HttpClient with 10 second socket timeout
+        // Configure HttpClient with 5 minute socket timeout
         client = new OpenSearchClient(
             ApacheHttpClient5TransportBuilder.builder(new HttpHost("http", host, clientPort))
                 .setHttpClientConfigCallback(httpClientBuilder -> {
                     RequestConfig config = RequestConfig.custom()
-                        .setResponseTimeout(Timeout.ofSeconds(10))
-                        .setConnectionRequestTimeout(Timeout.ofSeconds(10))
+                        .setResponseTimeout(Timeout.ofSeconds(300))
+                        .setConnectionRequestTimeout(Timeout.ofSeconds(300))
+                        .setConnectTimeout(Timeout.ofSeconds(300))
                         .build();
                     return httpClientBuilder.setDefaultRequestConfig(config);
                 })

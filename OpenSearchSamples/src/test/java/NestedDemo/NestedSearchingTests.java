@@ -201,8 +201,14 @@ public class NestedSearchingTests {
     public void nestedMapping_MultipleNestedFields_CanMatchFromBothFields() throws Exception {
         // Create a test index with multiple nested fields
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping -> {
-                    mapping.properties("primaryAttribute", Property.of(p -> p.nested(n -> n)));
-                    mapping.properties("secondaryAttribute", Property.of(p -> p.nested(n -> n)));
+                    mapping.properties("primaryAttribute", Property.of(p -> p.nested(n -> n
+                            .properties("color", Property.of(prop -> prop.keyword(k -> k)))
+                            .properties("size", Property.of(prop -> prop.keyword(k -> k)))
+                    )));
+                    mapping.properties("secondaryAttribute", Property.of(p -> p.nested(n -> n
+                            .properties("brand", Property.of(prop -> prop.keyword(k -> k)))
+                            .properties("category", Property.of(prop -> prop.keyword(k -> k)))
+                    )));
                 })) {
 
             // Create documents with both primary and secondary attributes using different DTO types
