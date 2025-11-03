@@ -65,9 +65,7 @@ public class NestedIndexingTests {
 
             // Retrieve the document
             GetResponse<ProductWithNestedAttribute> result = loggingOpenSearchClient.get(
-                    testIndex.getName(),
-                    productDocument.getId(),
-                    g -> g,
+                    g -> g.index(testIndex.getName()).id(productDocument.getId()),
                     ProductWithNestedAttribute.class
             );
 
@@ -104,15 +102,13 @@ public class NestedIndexingTests {
 
             // Retrieve the document to verify structure is preserved
             GetResponse<ProductWithNestedAttribute> result = loggingOpenSearchClient.get(
-                    testIndex.getName(),
-                    productDocument.getId(),
-                    g -> g,
+                    g -> g.index(testIndex.getName()).id(productDocument.getId()),
                     ProductWithNestedAttribute.class
             );
 
             // Capture GET mapping request to show nested field structure
             @SuppressWarnings("unused")
-            var mappingResponse = loggingOpenSearchClient.getMapping(testIndex.getName(), m -> m);
+            var mappingResponse = loggingOpenSearchClient.getMapping(m -> m.index(testIndex.getName()));
 
             // Verify nested structure is preserved
             assertThat(result.source().getAttribute()).isNotNull();
@@ -146,7 +142,7 @@ public class NestedIndexingTests {
 
             // Get the document count using the count API
             // Note: The count API only counts top-level documents, not nested documents
-            CountResponse countResponse = loggingOpenSearchClient.count(testIndex.getName(), c -> c);
+            CountResponse countResponse = loggingOpenSearchClient.count(c -> c.index(testIndex.getName()));
 
             // The count API returns only 1 (the top-level document)
             // However, the actual Lucene document count is 4:
@@ -168,9 +164,7 @@ public class NestedIndexingTests {
 
             // Verify that we still only retrieve 1 document when getting by ID
             GetResponse<ProductWithNestedArray> retrieved = loggingOpenSearchClient.get(
-                testIndex.getName(),
-                "1",
-                g -> g,
+                g -> g.index(testIndex.getName()).id("1"),
                 ProductWithNestedArray.class
             );
             assertThat(retrieved.found()).isTrue();
@@ -198,7 +192,7 @@ public class NestedIndexingTests {
 
             // Get the document count using the count API
             // Note: The count API only counts top-level documents, not nested documents
-            CountResponse countResponse = loggingOpenSearchClient.count(testIndex.getName(), c -> c);
+            CountResponse countResponse = loggingOpenSearchClient.count(c -> c.index(testIndex.getName()));
 
             // The count API returns only 1 (the top-level document)
             // However, the actual Lucene document count is 2:
@@ -210,9 +204,7 @@ public class NestedIndexingTests {
 
             // Verify that we still only retrieve 1 document when getting by ID
             GetResponse<ProductWithNestedAttribute> retrieved = loggingOpenSearchClient.get(
-                testIndex.getName(),
-                "1",
-                g -> g,
+                g -> g.index(testIndex.getName()).id("1"),
                 ProductWithNestedAttribute.class
             );
             assertThat(retrieved.found()).isTrue();

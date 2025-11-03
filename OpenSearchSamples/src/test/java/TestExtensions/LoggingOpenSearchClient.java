@@ -77,9 +77,9 @@ public class LoggingOpenSearchClient {
     /**
      * Performs a count operation with automatic request/response logging.
      */
-    public CountResponse count(String indexName, Function<CountRequest.Builder, CountRequest.Builder> fn) throws IOException {
+    public CountResponse count(Function<CountRequest.Builder, CountRequest.Builder> fn) throws IOException {
         var builder = new CountRequest.Builder();
-        var request = fn.apply(builder).index(indexName).build();
+        var request = fn.apply(builder).build();
         
         // Log the request
         logger.logRequest(client, request);
@@ -96,9 +96,9 @@ public class LoggingOpenSearchClient {
     /**
      * Performs a get operation with automatic request/response logging.
      */
-    public <T> GetResponse<T> get(String indexName, String documentId, Function<GetRequest.Builder, GetRequest.Builder> fn, Class<T> clazz) throws IOException {
+    public <T> GetResponse<T> get(Function<GetRequest.Builder, GetRequest.Builder> fn, Class<T> clazz) throws IOException {
         var builder = new GetRequest.Builder();
-        var request = fn.apply(builder).index(indexName).id(documentId).build();
+        var request = fn.apply(builder).build();
         
         // Log the request
         logger.logRequest(client, request);
@@ -115,9 +115,9 @@ public class LoggingOpenSearchClient {
     /**
      * Performs a get mapping operation with automatic request/response logging.
      */
-    public GetMappingResponse getMapping(String indexName, Function<GetMappingRequest.Builder, GetMappingRequest.Builder> fn) throws IOException {
+    public GetMappingResponse getMapping(Function<GetMappingRequest.Builder, GetMappingRequest.Builder> fn) throws IOException {
         var builder = new GetMappingRequest.Builder();
-        var request = fn.apply(builder).index(indexName).build();
+        var request = fn.apply(builder).build();
         
         // Log the request
         logger.logRequest(client, request);
