@@ -179,21 +179,16 @@ public class NestedSearchingTests {
     }
 
     /**
-     * Demonstrates the limitation of combining multiple top-level nested queries for different paths.
-     * 
-     * IMPORTANT: While you CAN search on multiple nested fields independently, combining multiple
-     * top-level nested queries for DIFFERENT paths in a bool query does NOT work as expected.
+     * Demonstrates that you CAN combine multiple top-level nested queries for different paths.
      * 
      * This test demonstrates:
      * 1. Individual nested queries on each field work correctly
-     * 2. Combining them in a bool.must query returns 0 results (unexpected behavior)
+     * 2. Combining them in a bool.must query works correctly and properly intersects results
      * 
-     * Based on profiling output, both ToParentBlockJoinQuery queries execute, but they fail
-     * to intersect correctly at the parent document level. This appears to be a limitation
-     * when combining multiple independent nested queries for different paths.
-     * 
-     * Note: Multi-level nested queries (one nested inside another for the same path hierarchy)
-     * DO work, but combining sibling nested fields does not.
+     * You can search on multiple nested fields independently, and combining multiple
+     * top-level nested queries for DIFFERENT paths in a bool query works as expected.
+     * OpenSearch correctly intersects the results from multiple independent nested queries
+     * targeting different paths at the parent document level.
      *
      * @throws Exception If an I/O error occurs
      */
@@ -265,15 +260,14 @@ public class NestedSearchingTests {
             // Should match Product1 and Product3 (both have BrandA)
             assertThat(secondaryOnlyResult.hits().total().value()).isEqualTo(2);
 
-            // ATTEMPT to search for products with primaryAttribute.color="red" AND secondaryAttribute.brand="BrandA"
-            // Using multiple nested queries combined with bool - THIS DOES NOT WORK AS EXPECTED
+            // Search for products with primaryAttribute.color="red" AND secondaryAttribute.brand="BrandA"
+            // Using multiple nested queries combined with bool - THIS WORKS CORRECTLY
             // 
             // Expected: Should match Product1 (has red color AND BrandA)
-            // Actual: Returns 0 results
+            // Actual: Returns 1 result (Product1) - correctly intersects both nested queries
             //
-            // Profile output shows both ToParentBlockJoinQuery queries execute but match_count: 0,
-            // indicating an intersection failure at the parent document level.
-            // This is a known limitation when combining multiple independent nested queries for different paths.
+            // OpenSearch properly intersects results from multiple independent nested queries
+            // targeting different paths at the parent document level.
             SearchResponse<ProductWithTwoNestedAttributes> result = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
@@ -305,14 +299,18 @@ public class NestedSearchingTests {
                     ProductWithTwoNestedAttributes.class
             );
 
-            // LIMITATION: This compound query returns 0 results, even though Product1 should match:
-            // - Product1 has primaryAttribute.color="red" AND secondaryAttribute.brand="BrandA"
+            // This compound query correctly returns 1 result (Product1):
+            // - Product1 has primaryAttribute.color="red" AND secondaryAttribute.brand="BrandA" - MATCHES
             // - Product2 has red color but BrandB, so it correctly won't match
             // - Product3 has BrandA but blue color, so it correctly won't match
             //
-            // The query syntax is correct, but OpenSearch does not properly intersect results
-            // from multiple independent nested queries targeting different paths.
-            assertThat(result.hits().total().value()).isEqualTo(0);
+            // OpenSearch properly intersects results from multiple independent nested queries
+            // targeting different paths at the parent document level.
+            assertThat(result.hits().total().value()).isEqualTo(1);
+            assertThat(result.hits().hits().stream()
+                    .map(h -> h.source().getId())
+                    .sorted())
+                    .containsExactly("1"); // Only Product1 matches both conditions
 
         }
     }
