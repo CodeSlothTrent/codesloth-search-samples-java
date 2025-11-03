@@ -269,7 +269,7 @@ public class FlattenedSearchingTests {
                     .map(h -> h.source().getId()))
                     .containsExactly("1"); // Product1 matches: primaryAttribute.color="red" AND secondaryAttribute.brand="BrandA"
 
-            // Search for primaryAttribute.color="red" alone - should match Product1, Product2, and Product3
+            // Search for primaryAttribute.color="red" alone - should match Product1 and Product2
             SearchResponse<ProductWithTwoFlattenedAttributes> primaryResult = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
