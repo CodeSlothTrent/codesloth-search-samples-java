@@ -1,6 +1,7 @@
 package DateDemo;
 
 import DateDemo.Documents.ProductDocument;
+import TestExtensions.LoggingOpenSearchClient;
 import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
 import TestInfrastructure.OpenSearchIndexFixture;
@@ -27,16 +28,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class DateIndexingTests {
     private static final Logger logger = LogManager.getLogger(DateIndexingTests.class);
 
-    private OpenSearchClient openSearchClient;
+    private LoggingOpenSearchClient loggingOpenSearchClient;
     private OpenSearchIndexFixture fixture;
 
     public DateIndexingTests(OpenSearchSharedResource openSearchSharedResource) {
-        this.openSearchClient = openSearchSharedResource.getOpenSearchClient();
+        this.loggingOpenSearchClient = openSearchSharedResource.getLoggingOpenSearchClient();
     }
 
     @BeforeEach
     public void setup() {
-        fixture = new OpenSearchIndexFixture(openSearchClient);
+        fixture = new OpenSearchIndexFixture(loggingOpenSearchClient.getClient(), loggingOpenSearchClient.getLogger());
     }
 
     /**
@@ -56,7 +57,7 @@ public class DateIndexingTests {
             testIndex.indexDocuments(new ProductDocument[]{productDocument});
 
             // Retrieve the document
-            GetResponse<ProductDocument> result = openSearchClient.get(g -> g
+            GetResponse<ProductDocument> result = loggingOpenSearchClient.getClient().get(g -> g
                     .index(testIndex.getName())
                     .id(productDocument.getId()),
                     ProductDocument.class
@@ -96,7 +97,7 @@ public class DateIndexingTests {
 
             // Verify each document
             for (ProductDocument doc : productDocuments) {
-                GetResponse<ProductDocument> result = openSearchClient.get(g -> g
+                GetResponse<ProductDocument> result = loggingOpenSearchClient.getClient().get(g -> g
                         .index(testIndex.getName())
                         .id(doc.getId()),
                         ProductDocument.class

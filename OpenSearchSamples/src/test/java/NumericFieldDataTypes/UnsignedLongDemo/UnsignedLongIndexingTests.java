@@ -1,6 +1,7 @@
 package NumericFieldDataTypes.UnsignedLongDemo;
 
 import NumericFieldDataTypes.UnsignedLongDemo.Documents.ProductDocument;
+import TestExtensions.LoggingOpenSearchClient;
 import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
 import TestInfrastructure.OpenSearchIndexFixture;
@@ -11,7 +12,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.mapping.Property;
 import org.opensearch.client.opensearch.core.GetResponse;
 
@@ -29,16 +29,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class UnsignedLongIndexingTests {
     private static final Logger logger = LogManager.getLogger(UnsignedLongIndexingTests.class);
 
-    private OpenSearchClient openSearchClient;
+    private LoggingOpenSearchClient loggingOpenSearchClient;
     private OpenSearchIndexFixture fixture;
 
     public UnsignedLongIndexingTests(OpenSearchSharedResource openSearchSharedResource) {
-        this.openSearchClient = openSearchSharedResource.getOpenSearchClient();
+        this.loggingOpenSearchClient = openSearchSharedResource.getLoggingOpenSearchClient();
     }
 
     @BeforeEach
     public void setup() {
-        fixture = new OpenSearchIndexFixture(openSearchClient);
+        fixture = new OpenSearchIndexFixture(loggingOpenSearchClient.getClient(), loggingOpenSearchClient.getLogger());
     }
 
     @ParameterizedTest
@@ -55,7 +55,7 @@ public class UnsignedLongIndexingTests {
             ProductDocument productDocument = new ProductDocument(1, "Mouse", stockValue);
             testIndex.indexDocuments(new ProductDocument[]{productDocument});
 
-            GetResponse<ProductDocument> result = openSearchClient.get(g -> g
+            GetResponse<ProductDocument> result = loggingOpenSearchClient.getClient().get(g -> g
                     .index(testIndex.getName())
                     .id(productDocument.getId()),
                     ProductDocument.class

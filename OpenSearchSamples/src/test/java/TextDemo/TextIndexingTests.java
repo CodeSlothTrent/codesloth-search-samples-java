@@ -1,5 +1,6 @@
 package TextDemo;
 
+import TestExtensions.LoggingOpenSearchClient;
 import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
 import TestInfrastructure.OpenSearchIndexFixture;
@@ -11,7 +12,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.mapping.Property;
 import org.opensearch.client.opensearch.core.TermvectorsResponse;
 import org.opensearch.client.opensearch.core.termvectors.TermVector;
@@ -34,16 +34,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TextIndexingTests {
     private static final Logger logger = LogManager.getLogger(TextIndexingTests.class);
 
-    private OpenSearchClient openSearchClient;
+    private LoggingOpenSearchClient loggingOpenSearchClient;
     private OpenSearchIndexFixture fixture;
 
     public TextIndexingTests(OpenSearchSharedResource openSearchSharedResource) {
-        this.openSearchClient = openSearchSharedResource.getOpenSearchClient();
+        this.loggingOpenSearchClient = openSearchSharedResource.getLoggingOpenSearchClient();
     }
 
     @BeforeEach
     public void setup() {
-        fixture = new OpenSearchIndexFixture(openSearchClient);
+        fixture = new OpenSearchIndexFixture(loggingOpenSearchClient.getClient(), loggingOpenSearchClient.getLogger());
     }
 
     /**
@@ -74,7 +74,7 @@ public class TextIndexingTests {
             testIndex.indexDocuments(new ProductDocument[]{productDocument});
 
             // Get term vectors for the document
-            TermvectorsResponse result = openSearchClient.termvectors(t -> t
+            TermvectorsResponse result = loggingOpenSearchClient.getClient().termvectors(t -> t
                     .index(testIndex.getName())
                     .id(String.valueOf(productDocument.getId()))
                     .fields("description")

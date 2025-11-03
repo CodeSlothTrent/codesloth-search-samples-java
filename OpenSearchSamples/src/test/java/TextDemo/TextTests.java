@@ -1,5 +1,6 @@
 package TextDemo;
 
+import TestExtensions.LoggingOpenSearchClient;
 import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
 import TestInfrastructure.OpenSearchIndexFixture;
@@ -11,7 +12,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.FieldValue;
 import org.opensearch.client.opensearch._types.analysis.Analyzer;
 import org.opensearch.client.opensearch._types.mapping.Property;
@@ -34,16 +34,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TextTests {
     private static final Logger logger = LogManager.getLogger(TextTests.class);
 
-    private OpenSearchClient openSearchClient;
+    private LoggingOpenSearchClient loggingOpenSearchClient;
     private OpenSearchIndexFixture fixture;
 
     public TextTests(OpenSearchSharedResource openSearchSharedResource) {
-        this.openSearchClient = openSearchSharedResource.getOpenSearchClient();
+        this.loggingOpenSearchClient = openSearchSharedResource.getLoggingOpenSearchClient();
     }
 
     @BeforeEach
     public void setup() {
-        fixture = new OpenSearchIndexFixture(openSearchClient);
+        fixture = new OpenSearchIndexFixture(loggingOpenSearchClient.getClient(), loggingOpenSearchClient.getLogger());
     }
 
     /**
@@ -73,7 +73,7 @@ public class TextTests {
             testIndex.indexDocuments(new ProductDocument[]{productDocument});
 
             // Get term vectors for the document
-            TermvectorsResponse result = openSearchClient.termvectors(t -> t
+            TermvectorsResponse result = loggingOpenSearchClient.getClient().termvectors(t -> t
                     .index(testIndex.getName())
                     .id(productDocument.getId())
                     .fields("description")
@@ -139,7 +139,7 @@ public class TextTests {
             testIndex.indexDocuments(new ProductDocument[]{productDocument});
 
             // Get term vectors for the document
-            TermvectorsResponse result = openSearchClient.termvectors(t -> t
+            TermvectorsResponse result = loggingOpenSearchClient.getClient().termvectors(t -> t
                     .index(testIndex.getName())
                     .id(productDocument.getId())
                     .fields("description")
@@ -201,7 +201,7 @@ public class TextTests {
             testIndex.indexDocuments(new ProductDocument[]{productDocument});
 
             // Get term vectors for the document
-            TermvectorsResponse result = openSearchClient.termvectors(t -> t
+            TermvectorsResponse result = loggingOpenSearchClient.getClient().termvectors(t -> t
                     .index(testIndex.getName())
                     .id(productDocument.getId())
                     .fields("description")
@@ -246,7 +246,7 @@ public class TextTests {
             testIndex.indexDocuments(new ProductDocument[]{productDocument});
 
             // Search for documents with a term query
-            SearchResponse<ProductDocument> result = openSearchClient.search(s -> s
+            SearchResponse<ProductDocument> result = loggingOpenSearchClient.getClient().search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .term(t -> t

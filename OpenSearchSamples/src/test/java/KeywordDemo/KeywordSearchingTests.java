@@ -1,6 +1,7 @@
 package KeywordDemo;
 
 import KeywordDemo.Documents.ProductDocument;
+import TestExtensions.LoggingOpenSearchClient;
 import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
 import TestInfrastructure.OpenSearchIndexFixture;
@@ -36,16 +37,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class KeywordSearchingTests {
     private static final Logger logger = LogManager.getLogger(KeywordSearchingTests.class);
     
-    private OpenSearchClient openSearchClient;
+    private LoggingOpenSearchClient loggingOpenSearchClient;
     private OpenSearchIndexFixture fixture;
 
     public KeywordSearchingTests(OpenSearchSharedResource openSearchSharedResource) {
-        this.openSearchClient = openSearchSharedResource.getOpenSearchClient();
+        this.loggingOpenSearchClient = openSearchSharedResource.getLoggingOpenSearchClient();
     }
 
     @BeforeEach
     public void setup() {
-        fixture = new OpenSearchIndexFixture(openSearchClient);
+        fixture = new OpenSearchIndexFixture(loggingOpenSearchClient.getClient(), loggingOpenSearchClient.getLogger());
     }
 
     /**
@@ -77,7 +78,7 @@ public class KeywordSearchingTests {
             testIndex.indexDocuments(productDocuments);
 
             // Search for documents with a term query
-            SearchResponse<ProductDocument> result = openSearchClient.search(s -> s
+            SearchResponse<ProductDocument> result = loggingOpenSearchClient.search(s -> s
                 .index(testIndex.getName())
                 .query(q -> q
                     .term(t -> t
@@ -121,7 +122,7 @@ public class KeywordSearchingTests {
             testIndex.indexDocuments(productDocuments);
 
             // Search for documents with a boolean query
-            SearchResponse<ProductDocument> result = openSearchClient.search(s -> s
+            SearchResponse<ProductDocument> result = loggingOpenSearchClient.search(s -> s
                 .index(testIndex.getName())
                 .query(q -> q
                     .bool(b -> b
@@ -169,7 +170,7 @@ public class KeywordSearchingTests {
             testIndex.indexDocuments(productDocuments);
 
             // Search for documents with a constant score query
-            SearchResponse<ProductDocument> result = openSearchClient.search(s -> s
+            SearchResponse<ProductDocument> result = loggingOpenSearchClient.search(s -> s
                 .index(testIndex.getName())
                 .query(q -> q
                     .constantScore(cs -> cs
@@ -220,7 +221,7 @@ public class KeywordSearchingTests {
             testIndex.indexDocuments(productDocuments);
 
             // Search for documents with a match query
-            SearchResponse<ProductDocument> result = openSearchClient.search(s -> s
+            SearchResponse<ProductDocument> result = loggingOpenSearchClient.search(s -> s
                 .index(testIndex.getName())
                 .query(q -> q
                     .match(m -> m
@@ -238,7 +239,7 @@ public class KeywordSearchingTests {
             assertThat(result.hits().hits().get(0).source().getName()).as(explanation).isEqualTo(matchText);
 
             // Analyze the text to confirm the tokens that would have been generated
-            AnalyzeResponse analyzeResult = openSearchClient.indices().analyze(a -> a
+            AnalyzeResponse analyzeResult = loggingOpenSearchClient.getClient().indices().analyze(a -> a
                 .analyzer("standard")
                 .text(matchText)
             );
@@ -278,7 +279,7 @@ public class KeywordSearchingTests {
             testIndex.indexDocuments(productDocuments);
 
             // Search for documents with a match query
-            SearchResponse<ProductDocument> result = openSearchClient.search(s -> s
+            SearchResponse<ProductDocument> result = loggingOpenSearchClient.search(s -> s
                 .index(testIndex.getName())
                 .query(q -> q
                     .match(m -> m
@@ -349,7 +350,7 @@ public class KeywordSearchingTests {
             testIndex.indexDocuments(productDocuments);
 
             // Search for documents with a range query
-            SearchResponse<ProductDocument> result = openSearchClient.search(s -> s
+            SearchResponse<ProductDocument> result = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .range(r -> r

@@ -21,15 +21,18 @@ import java.util.function.Consumer;
  */
 public class OpenSearchTestIndex implements AutoCloseable {
     private final OpenSearchClient openSearchClient;
+    private final OpenSearchRequestLogger logger;
     private final String name;
 
     /**
      * Creates a new test index with a random UUID name.
      *
      * @param openSearchClient The OpenSearch client to use for operations
+     * @param logger The logger instance for this test class (can be null if logging is not needed)
      */
-    public OpenSearchTestIndex(OpenSearchClient openSearchClient) {
+    public OpenSearchTestIndex(OpenSearchClient openSearchClient, OpenSearchRequestLogger logger) {
         this.openSearchClient = openSearchClient;
+        this.logger = logger;
         this.name = UUID.randomUUID().toString();
     }
 
@@ -69,7 +72,9 @@ public class OpenSearchTestIndex implements AutoCloseable {
         requestBuilder.settings(settingsBuilder.build());
 
         var request = requestBuilder.build();
-        OpenSearchRequestLogger.LogRequestJson(request);
+        if (logger != null) {
+            logger.logRequest(openSearchClient, request);
+        }
         CreateIndexResponse response = openSearchClient.indices().create(request);
 
         if (!response.acknowledged()) {
@@ -81,7 +86,6 @@ public class OpenSearchTestIndex implements AutoCloseable {
      * Indexes the provided documents into the test index.
      *
      * @param documents       Array of documents to index
-     * @param IDocumentWithId The document type
      * @throws IOException If an I/O error occurs during the operation
      */
     public void indexDocuments(IDocumentWithId[] documents) throws IOException {
@@ -99,7 +103,9 @@ public class OpenSearchTestIndex implements AutoCloseable {
         });
 
         var builtRequest = bulkRequest.refresh(Refresh.True).build();
-        OpenSearchRequestLogger.LogRequestJson(openSearchClient, builtRequest);
+        if (logger != null) {
+            logger.logRequest(openSearchClient, builtRequest);
+        }
         var bulkResponse = openSearchClient.bulk(builtRequest);
 
         if (bulkResponse.errors()) {

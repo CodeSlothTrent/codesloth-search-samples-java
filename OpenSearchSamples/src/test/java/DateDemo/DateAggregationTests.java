@@ -1,6 +1,7 @@
 package DateDemo;
 
 import DateDemo.Documents.ProductDocument;
+import TestExtensions.LoggingOpenSearchClient;
 import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
 import TestInfrastructure.OpenSearchIndexFixture;
@@ -10,10 +11,8 @@ import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.aggregations.CardinalityAggregate;
 import org.opensearch.client.opensearch._types.mapping.Property;
-import org.opensearch.client.opensearch.core.SearchRequest;
 import org.opensearch.client.opensearch.core.SearchResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -29,16 +28,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class DateAggregationTests {
     private static final Logger logger = LogManager.getLogger(DateAggregationTests.class);
 
-    private OpenSearchClient openSearchClient;
+    private LoggingOpenSearchClient loggingOpenSearchClient;
     private OpenSearchIndexFixture fixture;
 
     public DateAggregationTests(OpenSearchSharedResource openSearchSharedResource) {
-        this.openSearchClient = openSearchSharedResource.getOpenSearchClient();
+        this.loggingOpenSearchClient = openSearchSharedResource.getLoggingOpenSearchClient();
     }
 
     @BeforeEach
     public void setup() {
-        fixture = new OpenSearchIndexFixture(openSearchClient);
+        fixture = new OpenSearchIndexFixture(loggingOpenSearchClient.getClient(), loggingOpenSearchClient.getLogger());
     }
 
     /**
@@ -62,19 +61,16 @@ public class DateAggregationTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            // Create a search request with cardinality aggregation
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            // Execute the search request with cardinality aggregation
+            SearchResponse<ProductDocument> response = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
                     .size(0) // We do not want any documents returned; just the aggregations
                     .aggregations("unique_dates", a -> a
                             .cardinality(c -> c
                                     .field("createdAt")
                             )
-                    )
-                    .build();
-
-            // Execute the search request
-            SearchResponse<ProductDocument> response = openSearchClient.search(searchRequest, ProductDocument.class);
+                    ),
+                    ProductDocument.class);
 
             // Verify the results
             assertThat(response.aggregations()).isNotNull();

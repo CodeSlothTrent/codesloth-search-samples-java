@@ -1,6 +1,7 @@
 package NumericFieldDataTypes.ScaledFloatDemo;
 
 import NumericFieldDataTypes.ScaledFloatDemo.Documents.ProductDocument;
+import TestExtensions.LoggingOpenSearchClient;
 import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
 import TestInfrastructure.OpenSearchIndexFixture;
@@ -11,7 +12,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.mapping.Property;
 import org.opensearch.client.opensearch.core.GetResponse;
 
@@ -27,16 +27,16 @@ import static org.assertj.core.api.Assertions.within;
 public class ScaledFloatIndexingTests {
     private static final Logger logger = LogManager.getLogger(ScaledFloatIndexingTests.class);
 
-    private OpenSearchClient openSearchClient;
+    private LoggingOpenSearchClient loggingOpenSearchClient;
     private OpenSearchIndexFixture fixture;
 
     public ScaledFloatIndexingTests(OpenSearchSharedResource openSearchSharedResource) {
-        this.openSearchClient = openSearchSharedResource.getOpenSearchClient();
+        this.loggingOpenSearchClient = openSearchSharedResource.getLoggingOpenSearchClient();
     }
 
     @BeforeEach
     public void setup() {
-        fixture = new OpenSearchIndexFixture(openSearchClient);
+        fixture = new OpenSearchIndexFixture(loggingOpenSearchClient.getClient(), loggingOpenSearchClient.getLogger());
     }
 
     @ParameterizedTest
@@ -52,7 +52,7 @@ public class ScaledFloatIndexingTests {
             ProductDocument productDocument = new ProductDocument(1, "Mouse", priceValue);
             testIndex.indexDocuments(new ProductDocument[]{productDocument});
 
-            GetResponse<ProductDocument> result = openSearchClient.get(g -> g
+            GetResponse<ProductDocument> result = loggingOpenSearchClient.getClient().get(g -> g
                     .index(testIndex.getName())
                     .id(productDocument.getId()),
                     ProductDocument.class

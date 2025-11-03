@@ -8,13 +8,10 @@ import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
 import TestInfrastructure.OpenSearchIndexFixture;
 import TestInfrastructure.OpenSearchTestIndex;
-import TestInfrastructure.TestOutputFileWriter;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.opensearch.client.opensearch._types.mapping.Property;
-import org.opensearch.client.opensearch.core.CountRequest;
 import org.opensearch.client.opensearch.core.CountResponse;
 import org.opensearch.client.opensearch.core.GetResponse;
 
@@ -42,14 +39,10 @@ public class NestedIndexingTests {
         this.loggingOpenSearchClient = openSearchSharedResource.getLoggingOpenSearchClient();
     }
 
-    @BeforeAll
-    public static void enableOutputCapture() {
-        TestOutputFileWriter.enableCapture();
-    }
 
     @BeforeEach
     public void setup() {
-        fixture = new OpenSearchIndexFixture(loggingOpenSearchClient.getClient());
+        fixture = new OpenSearchIndexFixture(loggingOpenSearchClient.getClient(), loggingOpenSearchClient.getLogger());
     }
 
     /**
@@ -60,20 +53,9 @@ public class NestedIndexingTests {
      */
     @Test
     public void nestedMapping_IndexesObjectWithSubProperties() throws Exception {
-        String testMethodName = "nestedMapping_IndexesObjectWithSubProperties";
-        
         // Create a test index with nested mapping for the attribute field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
                 mapping.properties("attribute", Property.of(p -> p.nested(n -> n))))) {
-
-            // Capture index creation
-            TestOutputFileWriter.writeRequestJson(
-                loggingOpenSearchClient.getClient(),
-                testMethodName,
-                "PUT",
-                "/" + testIndex.getName(),
-                testIndex
-            );
 
             // Create and index a product document with a strongly-typed record
             // ProductAttribute: (color, size)
@@ -82,21 +64,12 @@ public class NestedIndexingTests {
             testIndex.indexDocuments(new ProductWithNestedAttribute[]{productDocument});
 
             // Retrieve the document
-            GetResponse<ProductWithNestedAttribute> result = loggingOpenSearchClient.getClient().get(g -> g
-                    .index(testIndex.getName())
-                    .id(productDocument.getId()),
+            GetResponse<ProductWithNestedAttribute> result = loggingOpenSearchClient.get(
+                    testIndex.getName(),
+                    productDocument.getId(),
+                    g -> g,
                     ProductWithNestedAttribute.class
             );
-
-            // Capture GET request and response
-            TestOutputFileWriter.writeRequestJson(
-                loggingOpenSearchClient.getClient(),
-                testMethodName,
-                "GET",
-                "/" + testIndex.getName() + "/_doc/" + productDocument.getId(),
-                result
-            );
-            TestOutputFileWriter.writeResponseJson(loggingOpenSearchClient.getClient(), testMethodName, result);
 
             // Verify the results
             assertThat(result.found()).isTrue();
@@ -108,9 +81,6 @@ public class NestedIndexingTests {
             assertThat(storedAttribute).isNotNull();
             assertThat(storedAttribute.color()).isEqualTo("red");
             assertThat(storedAttribute.size()).isEqualTo("large");
-
-            // Flush output to file
-            TestOutputFileWriter.flushTestOutput(testMethodName);
         }
     }
 
@@ -123,8 +93,6 @@ public class NestedIndexingTests {
      */
     @Test
     public void nestedMapping_SubPropertiesIndexedAsObjects() throws Exception {
-        String testMethodName = "nestedMapping_SubPropertiesIndexedAsObjects";
-        
         // Create a test index with nested mapping for the attribute field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
                 mapping.properties("attribute", Property.of(p -> p.nested(n -> n))))) {
@@ -135,31 +103,22 @@ public class NestedIndexingTests {
             testIndex.indexDocuments(new ProductWithNestedAttribute[]{productDocument});
 
             // Retrieve the document to verify structure is preserved
-            GetResponse<ProductWithNestedAttribute> result = loggingOpenSearchClient.getClient().get(g -> g
-                    .index(testIndex.getName())
-                    .id(productDocument.getId()),
+            GetResponse<ProductWithNestedAttribute> result = loggingOpenSearchClient.get(
+                    testIndex.getName(),
+                    productDocument.getId(),
+                    g -> g,
                     ProductWithNestedAttribute.class
             );
 
             // Capture GET mapping request to show nested field structure
-            var mappingResponse = loggingOpenSearchClient.getClient().indices().getMapping(m -> m
-                    .index(testIndex.getName()));
-            TestOutputFileWriter.writeRequestJson(
-                loggingOpenSearchClient.getClient(),
-                testMethodName,
-                "GET",
-                "/" + testIndex.getName() + "/_mapping",
-                mappingResponse
-            );
-            TestOutputFileWriter.writeResponseJson(loggingOpenSearchClient.getClient(), testMethodName, mappingResponse);
+            @SuppressWarnings("unused")
+            var mappingResponse = loggingOpenSearchClient.getMapping(testIndex.getName(), m -> m);
 
             // Verify nested structure is preserved
             assertThat(result.source().getAttribute()).isNotNull();
             assertThat(result.source().getAttribute().color()).isEqualTo("red");
             assertThat(result.source().getAttribute().size()).isEqualTo("large");
 
-            // Flush output to file
-            TestOutputFileWriter.flushTestOutput(testMethodName);
         }
     }
 
@@ -172,8 +131,6 @@ public class NestedIndexingTests {
      */
     @Test
     public void nestedMapping_NestedObjectsCountTowardsDocumentCount() throws Exception {
-        String testMethodName = "nestedMapping_NestedObjectsCountTowardsDocumentCount";
-        
         // Create a test index with nested mapping for the attributes array field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
                 mapping.properties("attributes", Property.of(p -> p.nested(n -> n))))) {
@@ -189,38 +146,36 @@ public class NestedIndexingTests {
 
             // Get the document count using the count API
             // Note: The count API only counts top-level documents, not nested documents
-            CountResponse countResponse = loggingOpenSearchClient.getClient().count(CountRequest.of(c -> c
-                    .index(testIndex.getName())
-            ));
-
-            // Capture count request and response
-            TestOutputFileWriter.writeRequestJson(
-                loggingOpenSearchClient.getClient(),
-                testMethodName,
-                "GET",
-                "/" + testIndex.getName() + "/_count",
-                countResponse
-            );
-            TestOutputFileWriter.writeResponseJson(loggingOpenSearchClient.getClient(), testMethodName, countResponse);
+            CountResponse countResponse = loggingOpenSearchClient.count(testIndex.getName(), c -> c);
 
             // The count API returns only 1 (the top-level document)
             // However, the actual Lucene document count is 4:
             // - 1 parent document (the product itself)
             // - 3 nested documents (one for each attribute in the array)
             // This demonstrates that nested objects are indexed as separate hidden documents
-            // To see the actual Lucene document count including nested docs, use the stats API: GET /index/_stats
             assertThat(countResponse.count()).isEqualTo(1L); // Only top-level documents
 
+            // Get the actual Lucene document count using the stats API
+            // The stats API shows the true document count including nested documents
+            // The stats method on the logging client automatically logs the request and response
+            @SuppressWarnings("unused")
+            var statsResponse = loggingOpenSearchClient.stats(testIndex.getName());
+            
+            // The stats API response contains the actual Lucene document count
+            // For this test, we expect 4 documents (1 parent + 3 nested)
+            // The response is captured for documentation purposes
+            // Access the document count: statsResponse.indices().get(testIndex.getName()).total().docs().count()
+
             // Verify that we still only retrieve 1 document when getting by ID
-            GetResponse<ProductWithNestedArray> retrieved = loggingOpenSearchClient.getClient().get(
-                g -> g.index(testIndex.getName()).id("1"),
+            GetResponse<ProductWithNestedArray> retrieved = loggingOpenSearchClient.get(
+                testIndex.getName(),
+                "1",
+                g -> g,
                 ProductWithNestedArray.class
             );
             assertThat(retrieved.found()).isTrue();
             assertThat(retrieved.source().getAttributes()).hasSize(3);
 
-            // Flush output to file
-            TestOutputFileWriter.flushTestOutput(testMethodName);
         }
     }
 
@@ -232,8 +187,6 @@ public class NestedIndexingTests {
      */
     @Test
     public void nestedMapping_SingleNestedObjectAlsoCountsAsDocument() throws Exception {
-        String testMethodName = "nestedMapping_SingleNestedObjectAlsoCountsAsDocument";
-        
         // Create a test index with nested mapping for the attribute field (single object, not array)
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
                 mapping.properties("attribute", Property.of(p -> p.nested(n -> n))))) {
@@ -245,19 +198,7 @@ public class NestedIndexingTests {
 
             // Get the document count using the count API
             // Note: The count API only counts top-level documents, not nested documents
-            CountResponse countResponse = loggingOpenSearchClient.getClient().count(CountRequest.of(c -> c
-                    .index(testIndex.getName())
-            ));
-
-            // Capture count request and response
-            TestOutputFileWriter.writeRequestJson(
-                loggingOpenSearchClient.getClient(),
-                testMethodName,
-                "GET",
-                "/" + testIndex.getName() + "/_count",
-                countResponse
-            );
-            TestOutputFileWriter.writeResponseJson(loggingOpenSearchClient.getClient(), testMethodName, countResponse);
+            CountResponse countResponse = loggingOpenSearchClient.count(testIndex.getName(), c -> c);
 
             // The count API returns only 1 (the top-level document)
             // However, the actual Lucene document count is 2:
@@ -268,15 +209,15 @@ public class NestedIndexingTests {
             assertThat(countResponse.count()).isEqualTo(1L); // Only top-level documents
 
             // Verify that we still only retrieve 1 document when getting by ID
-            GetResponse<ProductWithNestedAttribute> retrieved = loggingOpenSearchClient.getClient().get(
-                g -> g.index(testIndex.getName()).id("1"),
+            GetResponse<ProductWithNestedAttribute> retrieved = loggingOpenSearchClient.get(
+                testIndex.getName(),
+                "1",
+                g -> g,
                 ProductWithNestedAttribute.class
             );
             assertThat(retrieved.found()).isTrue();
             assertThat(retrieved.source().getAttribute()).isNotNull();
 
-            // Flush output to file
-            TestOutputFileWriter.flushTestOutput(testMethodName);
         }
     }
 }

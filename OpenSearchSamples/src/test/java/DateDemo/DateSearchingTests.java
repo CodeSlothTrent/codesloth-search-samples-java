@@ -1,6 +1,7 @@
 package DateDemo;
 
 import DateDemo.Documents.ProductDocument;
+import TestExtensions.LoggingOpenSearchClient;
 import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
 import TestInfrastructure.OpenSearchIndexFixture;
@@ -10,7 +11,6 @@ import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.FieldValue;
 import org.opensearch.client.opensearch._types.mapping.Property;
 import org.opensearch.client.opensearch.core.SearchResponse;
@@ -33,16 +33,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class DateSearchingTests {
     private static final Logger logger = LogManager.getLogger(DateSearchingTests.class);
 
-    private OpenSearchClient openSearchClient;
+    private LoggingOpenSearchClient loggingOpenSearchClient;
     private OpenSearchIndexFixture fixture;
 
     public DateSearchingTests(OpenSearchSharedResource openSearchSharedResource) {
-        this.openSearchClient = openSearchSharedResource.getOpenSearchClient();
+        this.loggingOpenSearchClient = openSearchSharedResource.getLoggingOpenSearchClient();
     }
 
     @BeforeEach
     public void setup() {
-        fixture = new OpenSearchIndexFixture(openSearchClient);
+        fixture = new OpenSearchIndexFixture(loggingOpenSearchClient.getClient(), loggingOpenSearchClient.getLogger());
     }
 
     /**
@@ -67,7 +67,7 @@ public class DateSearchingTests {
             testIndex.indexDocuments(productDocuments);
 
             // Search for documents with a term query
-            SearchResponse<ProductDocument> result = openSearchClient.search(s -> s
+            SearchResponse<ProductDocument> result = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .term(t -> t
@@ -75,8 +75,7 @@ public class DateSearchingTests {
                                             .value(FieldValue.of(targetDate))
                                     )
                             ),
-                    ProductDocument.class
-            );
+                    ProductDocument.class);
 
             // Verify the results
             assertThat(result.hits().total().value()).isEqualTo(1);
@@ -152,7 +151,7 @@ public class DateSearchingTests {
             testIndex.indexDocuments(productDocuments);
 
             // Search for documents with a range query
-            SearchResponse<ProductDocument> result = openSearchClient.search(s -> s
+            SearchResponse<ProductDocument> result = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .range(r -> r
@@ -161,8 +160,7 @@ public class DateSearchingTests {
                                             .lte(JsonData.of(lte))
                                     )
                             ),
-                    ProductDocument.class
-            );
+                    ProductDocument.class);
 
             // Verify the results
             assertThat(result.hits().total().value()).as(explanation).isEqualTo(expectedHits);
@@ -202,7 +200,7 @@ public class DateSearchingTests {
             testIndex.indexDocuments(productDocuments);
 
             // Search for documents with a boolean query
-            SearchResponse<ProductDocument> result = openSearchClient.search(s -> s
+            SearchResponse<ProductDocument> result = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .bool(b -> b
@@ -214,8 +212,7 @@ public class DateSearchingTests {
                                             )
                                     )
                             ),
-                    ProductDocument.class
-            );
+                    ProductDocument.class);
 
             // Verify the results
             assertThat(result.hits().total().value()).isEqualTo(1);

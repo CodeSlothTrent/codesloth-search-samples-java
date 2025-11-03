@@ -66,13 +66,27 @@ public class OpenSearchResourceManagementExtension implements BeforeAllCallback,
         // Get the shared client (container will be started if not already running)
         var openSearchClient = SharedOpenSearchContainer.getClient();
         
-        openSearchSharedResource = new OpenSearchSharedResource(openSearchClient);
+        // Extract test class name from the context
+        String testClassName = context.getRequiredTestClass().getSimpleName();
+        
+        // Enable capture based on system property, defaulting to false
+        // Set -Dopensearch.enableCapture=true to enable request/response capture
+        String captureProperty = System.getProperty("opensearch.enableCapture", "false");
+        boolean enableCapture = Boolean.parseBoolean(captureProperty);
+        
+        openSearchSharedResource = new OpenSearchSharedResource(openSearchClient, testClassName, enableCapture);
         logger.info("Test class setup completed - using shared container");
     }
 
     @Override
     public void afterAll(ExtensionContext extensionContext) throws Exception {
         logger.info("Test class teardown (container remains running for other tests)");
+        
+        // Close the logger to ensure all output is written to the file
+        if (openSearchSharedResource != null) {
+            openSearchSharedResource.close();
+        }
+        
         // Each test class should clean up its own indices if needed
         // The container will be stopped when all tests complete via the extension lifecycle
     }

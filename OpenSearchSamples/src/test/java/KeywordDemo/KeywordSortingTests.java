@@ -1,6 +1,7 @@
 package KeywordDemo;
 
 import KeywordDemo.Documents.ProductDocument;
+import TestExtensions.LoggingOpenSearchClient;
 import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
 import TestInfrastructure.OpenSearchIndexFixture;
@@ -32,16 +33,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class KeywordSortingTests {
     private static final Logger logger = LogManager.getLogger(KeywordSortingTests.class);
 
-    private OpenSearchClient openSearchClient;
+    private LoggingOpenSearchClient loggingOpenSearchClient;
     private OpenSearchIndexFixture fixture;
 
     public KeywordSortingTests(OpenSearchSharedResource openSearchSharedResource) {
-        this.openSearchClient = openSearchSharedResource.getOpenSearchClient();
+        this.loggingOpenSearchClient = openSearchSharedResource.getLoggingOpenSearchClient();
     }
 
     @BeforeEach
     public void setup() {
-        fixture = new OpenSearchIndexFixture(openSearchClient);
+        fixture = new OpenSearchIndexFixture(loggingOpenSearchClient.getClient(), loggingOpenSearchClient.getLogger());
     }
 
     /**
@@ -66,10 +67,10 @@ public class KeywordSortingTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            // Create a search request with a script sort
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            // Execute the search request with a script sort
+            SearchResponse<ProductDocument> searchResponse = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
-                    .sort(s -> s
+                    .sort(sort -> sort
                             .script(ss -> ss
                                     .type(ScriptSortType.Number)  // Must specify the script return type
                                     .script(sc -> sc
@@ -79,11 +80,8 @@ public class KeywordSortingTests {
                                     )
                                     .order(SortOrder.Asc)
                             )
-                    )
-                    .build();
-
-            // Execute the search request
-            SearchResponse<ProductDocument> searchResponse = openSearchClient.search(searchRequest, ProductDocument.class);
+                    ),
+                    ProductDocument.class);
 
             // Verify the results
             assertThat(searchResponse.hits().total().value()).isEqualTo(2);
@@ -115,19 +113,16 @@ public class KeywordSortingTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            // Create a search request with a field sort
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            // Execute the search request with a field sort
+            SearchResponse<ProductDocument> searchResponse = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
-                    .sort(s -> s
+                    .sort(sort -> sort
                             .field(f -> f
                                     .field("name")
                                     .order(SortOrder.Desc)
                             )
-                    )
-                    .build();
-
-            // Execute the search request
-            SearchResponse<ProductDocument> searchResponse = openSearchClient.search(searchRequest, ProductDocument.class);
+                    ),
+                    ProductDocument.class);
 
             // Verify the results
             assertThat(searchResponse.hits().total().value()).isEqualTo(2);
@@ -159,19 +154,16 @@ public class KeywordSortingTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            // Create a search request with a field sort
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            // Execute the search request with a field sort
+            SearchResponse<ProductDocument> searchResponse = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
-                    .sort(s -> s
+                    .sort(sort -> sort
                             .field(f -> f
                                     .field("name")
                                     .order(SortOrder.Desc)
                             )
-                    )
-                    .build();
-
-            // Execute the search request
-            SearchResponse<ProductDocument> searchResponse = openSearchClient.search(searchRequest, ProductDocument.class);
+                    ),
+                    ProductDocument.class);
 
             // Verify the results
             assertThat(searchResponse.hits().total().value()).isEqualTo(2);

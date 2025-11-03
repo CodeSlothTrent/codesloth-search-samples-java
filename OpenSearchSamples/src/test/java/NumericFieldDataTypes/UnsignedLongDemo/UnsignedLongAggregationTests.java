@@ -1,6 +1,7 @@
 package NumericFieldDataTypes.UnsignedLongDemo;
 
 import NumericFieldDataTypes.UnsignedLongDemo.Documents.ProductDocument;
+import TestExtensions.LoggingOpenSearchClient;
 import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
 import TestInfrastructure.OpenSearchIndexFixture;
@@ -10,10 +11,8 @@ import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.aggregations.CardinalityAggregate;
 import org.opensearch.client.opensearch._types.mapping.Property;
-import org.opensearch.client.opensearch.core.SearchRequest;
 import org.opensearch.client.opensearch.core.SearchResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -28,16 +27,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class UnsignedLongAggregationTests {
     private static final Logger logger = LogManager.getLogger(UnsignedLongAggregationTests.class);
 
-    private OpenSearchClient openSearchClient;
+    private LoggingOpenSearchClient loggingOpenSearchClient;
     private OpenSearchIndexFixture fixture;
 
     public UnsignedLongAggregationTests(OpenSearchSharedResource openSearchSharedResource) {
-        this.openSearchClient = openSearchSharedResource.getOpenSearchClient();
+        this.loggingOpenSearchClient = openSearchSharedResource.getLoggingOpenSearchClient();
     }
 
     @BeforeEach
     public void setup() {
-        fixture = new OpenSearchIndexFixture(openSearchClient);
+        fixture = new OpenSearchIndexFixture(loggingOpenSearchClient.getClient(), loggingOpenSearchClient.getLogger());
     }
 
     @Test
@@ -52,17 +51,15 @@ public class UnsignedLongAggregationTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            SearchResponse<ProductDocument> response = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
                     .size(0)
                     .aggregations("distinctStockLevels", a -> a
                             .cardinality(c -> c
                                     .field("stock")
                             )
-                    )
-                    .build();
-
-            SearchResponse<ProductDocument> response = openSearchClient.search(searchRequest, ProductDocument.class);
+                    ),
+                    ProductDocument.class);
 
             assertThat(response.aggregations()).isNotNull();
             CardinalityAggregate cardinalityAgg = response.aggregations().get("distinctStockLevels").cardinality();

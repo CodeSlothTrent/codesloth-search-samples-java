@@ -3,19 +3,69 @@ package TestInfrastructure;
 import com.fasterxml.jackson.core.JsonGenerator;
 import org.apache.logging.log4j.LogManager;
 import org.opensearch.client.json.JsonpMapper;
-import org.opensearch.client.json.PlainJsonSerializable;
 import org.opensearch.client.opensearch.OpenSearchClient;
 
+import java.io.FileWriter;
+import java.io.IOException;
 import java.io.StringWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
+/**
+ * Instance-based logger for OpenSearch requests and responses.
+ * Each instance is scoped to a test class and writes directly to a single file.
+ * Supports both console logging (via log4j) and file output (for test documentation).
+ */
 public class OpenSearchRequestLogger {
     private static final org.apache.logging.log4j.Logger logger = LogManager.getLogger(OpenSearchRequestLogger.class);
-
-    public static void LogRequestJson(PlainJsonSerializable serializable) {
-        logger.info(serializable.toJsonString());
+    private static final String OUTPUT_DIR = "test-outputs";
+    
+    private final String testClassName;
+    private final boolean captureEnabled;
+    private FileWriter fileWriter;
+    private int requestCounter = 0;
+    private int responseCounter = 0;
+    
+    /**
+     * Creates a new logger instance for a test class.
+     * Opens a single output file that will be used for all requests/responses from this test class.
+     * 
+     * @param testClassName The name of the test class (for file naming)
+     * @param captureEnabled Whether to write to files (console logging always enabled)
+     */
+    public OpenSearchRequestLogger(String testClassName, boolean captureEnabled) {
+        this.testClassName = testClassName;
+        this.captureEnabled = captureEnabled;
+        
+        if (captureEnabled) {
+            try {
+                Path outputPath = Paths.get(OUTPUT_DIR);
+                if (!Files.exists(outputPath)) {
+                    Files.createDirectories(outputPath);
+                }
+                
+                // Create a single file for this test class
+                String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+                String fileName = testClassName + "_" + timestamp + ".txt";
+                Path filePath = Paths.get(OUTPUT_DIR, fileName);
+                this.fileWriter = new FileWriter(filePath.toFile(), false); // false = overwrite, true = append
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to create output file for test class: " + testClassName, e);
+            }
+        }
     }
 
-    public static <T> void LogRequestJson(OpenSearchClient client, T request) {
+    /**
+     * Logs a request (console and file).
+     * Always logs to console and writes to file if capture is enabled.
+     * 
+     * @param client The OpenSearch client (required for serialization)
+     * @param request The request object to serialize
+     */
+    public <T> void logRequest(OpenSearchClient client, T request) {
         try {
             JsonpMapper jsonpMapper = client._transport().jsonpMapper();
             StringWriter stringWriter = new StringWriter();
@@ -28,31 +78,25 @@ public class OpenSearchRequestLogger {
             }
             String jsonRequest = stringWriter.toString();
             logger.info(jsonRequest);
-        } catch (Exception e) {
-            logger.error("Failed to serialize request: " + e.getMessage(), e);
-        }
-    }
-
-    public static <T> void LogSearchRequest(OpenSearchClient client, T request) {
-        logger.info("Search Request:");
-        try {
-            JsonpMapper jsonpMapper = client._transport().jsonpMapper();
-            StringWriter stringWriter = new StringWriter();
-            try (var jsonGenerator = jsonpMapper.jsonProvider().createGenerator(stringWriter)) {
-                // Configure pretty printing if using Jackson
-                if (jsonGenerator instanceof JsonGenerator) {
-                    ((JsonGenerator) jsonGenerator).useDefaultPrettyPrinter();
-                }
-                jsonpMapper.serialize(request, jsonGenerator);
+            if (captureEnabled) {
+                writeRequestToFile(jsonRequest);
             }
-            String jsonRequest = stringWriter.toString();
-            logger.info(jsonRequest);
         } catch (Exception e) {
             logger.error("Failed to serialize request: " + e.getMessage(), e);
+            if (captureEnabled) {
+                writeRequestToFile("Error serializing request: " + e.getMessage());
+            }
         }
     }
 
-    public static <T> void LogResponseJson(OpenSearchClient client, T response) {
+    /**
+     * Logs a response (console and file).
+     * Always logs to console and writes to file if capture is enabled.
+     * 
+     * @param client The OpenSearch client (required for serialization)
+     * @param response The response object to serialize
+     */
+    public <T> void logResponse(OpenSearchClient client, T response) {
         try {
             JsonpMapper jsonpMapper = client._transport().jsonpMapper();
             StringWriter stringWriter = new StringWriter();
@@ -65,27 +109,63 @@ public class OpenSearchRequestLogger {
             }
             String jsonResponse = stringWriter.toString();
             logger.info(jsonResponse);
+            if (captureEnabled) {
+                writeResponseToFile(jsonResponse);
+            }
         } catch (Exception e) {
             logger.error("Failed to serialize response: " + e.getMessage(), e);
+            if (captureEnabled) {
+                writeResponseToFile("Error serializing response: " + e.getMessage());
+            }
         }
     }
 
-    public static <T> void LogSearchResponse(OpenSearchClient client, T response) {
-        logger.info("Search Response:");
+    // Private helper methods for file writing
+    
+    private synchronized void writeRequestToFile(String requestBody) {
+        if (fileWriter == null) {
+            return;
+        }
+        
+        requestCounter++;
         try {
-            JsonpMapper jsonpMapper = client._transport().jsonpMapper();
-            StringWriter stringWriter = new StringWriter();
-            try (var jsonGenerator = jsonpMapper.jsonProvider().createGenerator(stringWriter)) {
-                // Configure pretty printing if using Jackson
-                if (jsonGenerator instanceof JsonGenerator) {
-                    ((JsonGenerator) jsonGenerator).useDefaultPrettyPrinter();
-                }
-                jsonpMapper.serialize(response, jsonGenerator);
+            fileWriter.write("=== REQUEST #" + requestCounter + " ===\n");
+            fileWriter.write(requestBody);
+            fileWriter.write("\n\n");
+            fileWriter.flush(); // Flush after each write to ensure data is written
+        } catch (IOException e) {
+            System.err.println("Failed to write request to file: " + e.getMessage());
+        }
+    }
+    
+    private synchronized void writeResponseToFile(String responseBody) {
+        if (fileWriter == null) {
+            return;
+        }
+        
+        responseCounter++;
+        try {
+            fileWriter.write("=== RESPONSE #" + responseCounter + " ===\n");
+            fileWriter.write(responseBody);
+            fileWriter.write("\n\n");
+            fileWriter.flush(); // Flush after each write to ensure data is written
+        } catch (IOException e) {
+            System.err.println("Failed to write response to file: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Closes the output file. Should be called when the test class is done executing.
+     * This ensures all buffered data is written to disk.
+     */
+    public synchronized void close() {
+        if (fileWriter != null) {
+            try {
+                fileWriter.close();
+                fileWriter = null;
+            } catch (IOException e) {
+                System.err.println("Failed to close output file: " + e.getMessage());
             }
-            String jsonResponse = stringWriter.toString();
-            logger.info(jsonResponse);
-        } catch (Exception e) {
-            logger.error("Failed to serialize response: " + e.getMessage(), e);
         }
     }
 }

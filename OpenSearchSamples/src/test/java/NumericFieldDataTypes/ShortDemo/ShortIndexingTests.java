@@ -1,6 +1,7 @@
 package NumericFieldDataTypes.ShortDemo;
 
 import NumericFieldDataTypes.ShortDemo.Documents.ProductDocument;
+import TestExtensions.LoggingOpenSearchClient;
 import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
 import TestInfrastructure.OpenSearchIndexFixture;
@@ -11,7 +12,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.mapping.Property;
 import org.opensearch.client.opensearch.core.GetResponse;
 
@@ -28,16 +28,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class ShortIndexingTests {
     private static final Logger logger = LogManager.getLogger(ShortIndexingTests.class);
 
-    private OpenSearchClient openSearchClient;
+    private LoggingOpenSearchClient loggingOpenSearchClient;
     private OpenSearchIndexFixture fixture;
 
     public ShortIndexingTests(OpenSearchSharedResource openSearchSharedResource) {
-        this.openSearchClient = openSearchSharedResource.getOpenSearchClient();
+        this.loggingOpenSearchClient = openSearchSharedResource.getLoggingOpenSearchClient();
     }
 
     @BeforeEach
     public void setup() {
-        fixture = new OpenSearchIndexFixture(openSearchClient);
+        fixture = new OpenSearchIndexFixture(loggingOpenSearchClient.getClient(), loggingOpenSearchClient.getLogger());
     }
 
     /**
@@ -69,7 +69,7 @@ public class ShortIndexingTests {
             testIndex.indexDocuments(new ProductDocument[]{productDocument});
 
             // Retrieve the document
-            GetResponse<ProductDocument> result = openSearchClient.get(g -> g
+            GetResponse<ProductDocument> result = loggingOpenSearchClient.getClient().get(g -> g
                     .index(testIndex.getName())
                     .id(productDocument.getId()),
                     ProductDocument.class
@@ -111,7 +111,7 @@ public class ShortIndexingTests {
 
             // Verify each document
             for (ProductDocument doc : productDocuments) {
-                GetResponse<ProductDocument> result = openSearchClient.get(g -> g
+                GetResponse<ProductDocument> result = loggingOpenSearchClient.getClient().get(g -> g
                         .index(testIndex.getName())
                         .id(doc.getId()),
                         ProductDocument.class

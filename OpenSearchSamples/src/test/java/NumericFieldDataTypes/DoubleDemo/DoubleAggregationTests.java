@@ -1,6 +1,7 @@
 package NumericFieldDataTypes.DoubleDemo;
 
 import NumericFieldDataTypes.DoubleDemo.Documents.ProductDocument;
+import TestExtensions.LoggingOpenSearchClient;
 import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
 import TestInfrastructure.OpenSearchIndexFixture;
@@ -10,11 +11,9 @@ import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.aggregations.CardinalityAggregate;
 import org.opensearch.client.opensearch._types.aggregations.DoubleTermsAggregate;
 import org.opensearch.client.opensearch._types.mapping.Property;
-import org.opensearch.client.opensearch.core.SearchRequest;
 import org.opensearch.client.opensearch.core.SearchResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -27,16 +26,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class DoubleAggregationTests {
     private static final Logger logger = LogManager.getLogger(DoubleAggregationTests.class);
 
-    private OpenSearchClient openSearchClient;
+    private LoggingOpenSearchClient loggingOpenSearchClient;
     private OpenSearchIndexFixture fixture;
 
     public DoubleAggregationTests(OpenSearchSharedResource openSearchSharedResource) {
-        this.openSearchClient = openSearchSharedResource.getOpenSearchClient();
+        this.loggingOpenSearchClient = openSearchSharedResource.getLoggingOpenSearchClient();
     }
 
     @BeforeEach
     public void setup() {
-        fixture = new OpenSearchIndexFixture(openSearchClient);
+        fixture = new OpenSearchIndexFixture(loggingOpenSearchClient.getClient(), loggingOpenSearchClient.getLogger());
     }
 
     @Test
@@ -53,7 +52,7 @@ public class DoubleAggregationTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            SearchResponse<ProductDocument> response = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
                     .size(0)
                     .aggregations("price_counts", a -> a
@@ -61,10 +60,8 @@ public class DoubleAggregationTests {
                                     .field("price")
                                     .size(10)
                             )
-                    )
-                    .build();
-
-            SearchResponse<ProductDocument> response = openSearchClient.search(searchRequest, ProductDocument.class);
+                    ),
+                    ProductDocument.class);
 
             assertThat(response.aggregations()).isNotNull();
             DoubleTermsAggregate termsAgg = response.aggregations().get("price_counts").dterms();
@@ -84,17 +81,15 @@ public class DoubleAggregationTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            SearchResponse<ProductDocument> response = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
                     .size(0)
                     .aggregations("distinctPrices", a -> a
                             .cardinality(c -> c
                                     .field("price")
                             )
-                    )
-                    .build();
-
-            SearchResponse<ProductDocument> response = openSearchClient.search(searchRequest, ProductDocument.class);
+                    ),
+                    ProductDocument.class);
 
             assertThat(response.aggregations()).isNotNull();
             CardinalityAggregate cardinalityAgg = response.aggregations().get("distinctPrices").cardinality();

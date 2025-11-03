@@ -6,9 +6,9 @@ public class OpenSearchSharedResource {
     private OpenSearchClient openSearchClient;
     private LoggingOpenSearchClient loggingOpenSearchClient;
 
-    public OpenSearchSharedResource(OpenSearchClient openSearchClient) {
+    public OpenSearchSharedResource(OpenSearchClient openSearchClient, String testClassName, boolean enableCapture) {
         this.openSearchClient = openSearchClient;
-        this.loggingOpenSearchClient = new LoggingOpenSearchClient(openSearchClient);
+        this.loggingOpenSearchClient = new LoggingOpenSearchClient(openSearchClient, testClassName, enableCapture);
     }
 
     public OpenSearchClient getOpenSearchClient() {
@@ -41,5 +41,15 @@ public class OpenSearchSharedResource {
      */
     public String getOpenSearchUrl() {
         return SharedOpenSearchContainer.getOpenSearchUrl();
+    }
+    
+    /**
+     * Closes the logger, ensuring all output is flushed to disk.
+     * Should be called when the test class is done executing.
+     */
+    public void close() {
+        if (loggingOpenSearchClient != null) {
+            loggingOpenSearchClient.getLogger().close();
+        }
     }
 }

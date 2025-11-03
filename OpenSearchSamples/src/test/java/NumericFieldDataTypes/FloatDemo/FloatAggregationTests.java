@@ -1,6 +1,7 @@
 package NumericFieldDataTypes.FloatDemo;
 
 import NumericFieldDataTypes.FloatDemo.Documents.ProductDocument;
+import TestExtensions.LoggingOpenSearchClient;
 import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
 import TestInfrastructure.OpenSearchIndexFixture;
@@ -10,11 +11,9 @@ import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.aggregations.CardinalityAggregate;
 import org.opensearch.client.opensearch._types.aggregations.DoubleTermsAggregate;
 import org.opensearch.client.opensearch._types.mapping.Property;
-import org.opensearch.client.opensearch.core.SearchRequest;
 import org.opensearch.client.opensearch.core.SearchResponse;
 
 import java.util.Map;
@@ -33,16 +32,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class FloatAggregationTests {
     private static final Logger logger = LogManager.getLogger(FloatAggregationTests.class);
 
-    private OpenSearchClient openSearchClient;
+    private LoggingOpenSearchClient loggingOpenSearchClient;
     private OpenSearchIndexFixture fixture;
 
     public FloatAggregationTests(OpenSearchSharedResource openSearchSharedResource) {
-        this.openSearchClient = openSearchSharedResource.getOpenSearchClient();
+        this.loggingOpenSearchClient = openSearchSharedResource.getLoggingOpenSearchClient();
     }
 
     @BeforeEach
     public void setup() {
-        fixture = new OpenSearchIndexFixture(openSearchClient);
+        fixture = new OpenSearchIndexFixture(loggingOpenSearchClient.getClient(), loggingOpenSearchClient.getLogger());
     }
 
     /**
@@ -67,8 +66,8 @@ public class FloatAggregationTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            // Create a search request with terms aggregation
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            // Execute the search request with terms aggregation
+            SearchResponse<ProductDocument> response = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
                     .size(0) // We do not want any documents returned; just the aggregations
                     .aggregations("price_counts", a -> a
@@ -76,11 +75,8 @@ public class FloatAggregationTests {
                                     .field("price")
                                     .size(10)
                             )
-                    )
-                    .build();
-
-            // Execute the search request
-            SearchResponse<ProductDocument> response = openSearchClient.search(searchRequest, ProductDocument.class);
+                    ),
+                    ProductDocument.class);
 
             // Verify the results
             assertThat(response.aggregations()).isNotNull();
@@ -122,19 +118,16 @@ public class FloatAggregationTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            // Create a search request with cardinality aggregation
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            // Execute the search request with cardinality aggregation
+            SearchResponse<ProductDocument> response = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
                     .size(0) // We do not want any documents returned; just the aggregations
                     .aggregations("distinctPrices", a -> a
                             .cardinality(c -> c
                                     .field("price")
                             )
-                    )
-                    .build();
-
-            // Execute the search request
-            SearchResponse<ProductDocument> response = openSearchClient.search(searchRequest, ProductDocument.class);
+                    ),
+                    ProductDocument.class);
 
             // Verify the results
             assertThat(response.aggregations()).isNotNull();
@@ -166,8 +159,8 @@ public class FloatAggregationTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            // Create a search request with a filter query and terms aggregation
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            // Execute the search request with a filter query and terms aggregation
+            SearchResponse<ProductDocument> response = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
                     .query(q -> q
                             .range(r -> r
@@ -181,11 +174,8 @@ public class FloatAggregationTests {
                                     .field("price")
                                     .size(10)
                             )
-                    )
-                    .build();
-
-            // Execute the search request
-            SearchResponse<ProductDocument> response = openSearchClient.search(searchRequest, ProductDocument.class);
+                    ),
+                    ProductDocument.class);
 
             // Verify the results
             assertThat(response.aggregations()).isNotNull();

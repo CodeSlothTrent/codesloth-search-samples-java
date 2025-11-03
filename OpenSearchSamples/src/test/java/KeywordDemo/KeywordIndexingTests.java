@@ -1,6 +1,7 @@
 package KeywordDemo;
 
 import KeywordDemo.Documents.ProductDocument;
+import TestExtensions.LoggingOpenSearchClient;
 import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
 import TestInfrastructure.OpenSearchIndexFixture;
@@ -30,16 +31,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class KeywordIndexingTests {
     private static final Logger logger = LogManager.getLogger(KeywordIndexingTests.class);
 
-    private OpenSearchClient openSearchClient;
+    private LoggingOpenSearchClient loggingOpenSearchClient;
     private OpenSearchIndexFixture fixture;
 
     public KeywordIndexingTests(OpenSearchSharedResource openSearchSharedResource) {
-        this.openSearchClient = openSearchSharedResource.getOpenSearchClient();
+        this.loggingOpenSearchClient = openSearchSharedResource.getLoggingOpenSearchClient();
     }
 
     @BeforeEach
     public void setup() {
-        fixture = new OpenSearchIndexFixture(openSearchClient);
+        fixture = new OpenSearchIndexFixture(loggingOpenSearchClient.getClient(), loggingOpenSearchClient.getLogger());
     }
 
     /**
@@ -69,7 +70,7 @@ public class KeywordIndexingTests {
             testIndex.indexDocuments(new ProductDocument[]{productDocument});
 
             // Get term vectors for the document
-            TermvectorsResponse result = openSearchClient.termvectors(t -> t
+            TermvectorsResponse result = loggingOpenSearchClient.termvectors(t -> t
                     .index(testIndex.getName())
                     .id(String.valueOf(productDocument.getId()))
                     .fields("name")

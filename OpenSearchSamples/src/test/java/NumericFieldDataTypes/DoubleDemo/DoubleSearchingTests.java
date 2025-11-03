@@ -1,6 +1,7 @@
 package NumericFieldDataTypes.DoubleDemo;
 
 import NumericFieldDataTypes.DoubleDemo.Documents.ProductDocument;
+import TestExtensions.LoggingOpenSearchClient;
 import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
 import TestInfrastructure.OpenSearchIndexFixture;
@@ -11,7 +12,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.FieldValue;
 import org.opensearch.client.opensearch._types.mapping.Property;
 import org.opensearch.client.opensearch.core.SearchResponse;
@@ -27,16 +27,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class DoubleSearchingTests {
     private static final Logger logger = LogManager.getLogger(DoubleSearchingTests.class);
 
-    private OpenSearchClient openSearchClient;
+    private LoggingOpenSearchClient loggingOpenSearchClient;
     private OpenSearchIndexFixture fixture;
 
     public DoubleSearchingTests(OpenSearchSharedResource openSearchSharedResource) {
-        this.openSearchClient = openSearchSharedResource.getOpenSearchClient();
+        this.loggingOpenSearchClient = openSearchSharedResource.getLoggingOpenSearchClient();
     }
 
     @BeforeEach
     public void setup() {
-        fixture = new OpenSearchIndexFixture(openSearchClient);
+        fixture = new OpenSearchIndexFixture(loggingOpenSearchClient.getClient(), loggingOpenSearchClient.getLogger());
     }
 
     @ParameterizedTest
@@ -55,7 +55,7 @@ public class DoubleSearchingTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            SearchResponse<ProductDocument> result = openSearchClient.search(s -> s
+            SearchResponse<ProductDocument> result = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .term(t -> t
@@ -87,7 +87,7 @@ public class DoubleSearchingTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            SearchResponse<ProductDocument> result = openSearchClient.search(s -> s
+            SearchResponse<ProductDocument> result = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .range(r -> r

@@ -46,7 +46,7 @@ public class FlattenedSearchingTests {
 
     @BeforeEach
     public void setup() {
-        fixture = new OpenSearchIndexFixture(loggingOpenSearchClient.getClient());
+        fixture = new OpenSearchIndexFixture(loggingOpenSearchClient.getClient(), loggingOpenSearchClient.getLogger());
     }
 
     /**

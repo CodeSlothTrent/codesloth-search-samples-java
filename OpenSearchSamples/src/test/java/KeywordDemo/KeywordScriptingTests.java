@@ -1,6 +1,7 @@
 package KeywordDemo;
 
 import KeywordDemo.Documents.ProductDocument;
+import TestExtensions.LoggingOpenSearchClient;
 import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
 import TestInfrastructure.OpenSearchIndexFixture;
@@ -29,16 +30,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class KeywordScriptingTests {
     private static final Logger logger = LogManager.getLogger(KeywordScriptingTests.class);
 
-    private OpenSearchClient openSearchClient;
+    private LoggingOpenSearchClient loggingOpenSearchClient;
     private OpenSearchIndexFixture fixture;
 
     public KeywordScriptingTests(OpenSearchSharedResource openSearchSharedResource) {
-        this.openSearchClient = openSearchSharedResource.getOpenSearchClient();
+        this.loggingOpenSearchClient = openSearchSharedResource.getLoggingOpenSearchClient();
     }
 
     @BeforeEach
     public void setup() {
-        fixture = new OpenSearchIndexFixture(openSearchClient);
+        fixture = new OpenSearchIndexFixture(loggingOpenSearchClient.getClient(), loggingOpenSearchClient.getLogger());
     }
 
     /**
@@ -63,21 +64,18 @@ public class KeywordScriptingTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            // Create a search request with a script field
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            // Execute the search request with a script field
+            SearchResponse<ProductDocument> response = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
                     .scriptFields("category", sf -> sf
-                            .script(s -> s
+                            .script(script -> script
                                     .inline(i -> i
                                             .source("doc['name'].value == 'mouse' ? 'computer accessory' : 'mouse accessory'")
                                     )
                             )
                     )
-                    .source(b -> b.filter(new SourceFilter.Builder().build()))
-                    .build();
-
-            // Execute the search request
-            SearchResponse<ProductDocument> response = openSearchClient.search(searchRequest, ProductDocument.class);
+                    .source(b -> b.filter(new SourceFilter.Builder().build())),
+                    ProductDocument.class);
 
             // Verify the results
             assertThat(response.hits().hits()).hasSize(2);
@@ -125,23 +123,20 @@ public class KeywordScriptingTests {
             // Define a variable to be interpolated into the script
             String scriptedVariableValue = "mouse";
 
-            // Create a search request with a script field using string interpolation
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            // Execute the search request with a script field using string interpolation
+            SearchResponse<ProductDocument> searchResponse = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
                     .query(query -> query.matchAll(new MatchAllQuery.Builder().build()))
                     .scriptFields("category", sf -> sf
-                            .script(s -> s
+                            .script(script -> script
                                     .inline(i -> i
                                             .source("doc['name'].value == '" + scriptedVariableValue + "' ? 'computer accessory' : 'mouse accessory'")
                                     )
                             )
                     )
                     // The source field is omitted from results, so we must set an empty filter to fetch it
-                    .source(b -> b.filter(new SourceFilter.Builder().build()))
-                    .build();
-
-            // Execute the search request
-            SearchResponse<ProductDocument> searchResponse = openSearchClient.search(searchRequest, ProductDocument.class);
+                    .source(b -> b.filter(new SourceFilter.Builder().build())),
+                    ProductDocument.class);
 
             // Verify the results
             assertThat(searchResponse.hits().total().value()).isEqualTo(2);

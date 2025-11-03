@@ -3,10 +3,10 @@ package KeywordDemo;
 import KeywordDemo.Documents.ProductDocument;
 import KeywordDemo.Documents.ProductDocumentWithMultipleNames;
 import KeywordDemo.Documents.UserFavouriteProducts;
+import TestExtensions.LoggingOpenSearchClient;
 import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
 import TestInfrastructure.OpenSearchIndexFixture;
-import TestInfrastructure.OpenSearchRequestLogger;
 import TestInfrastructure.OpenSearchTestIndex;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -43,16 +43,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class KeywordAggregationTests {
     private static final Logger logger = LogManager.getLogger(KeywordAggregationTests.class);
 
-    private OpenSearchClient openSearchClient;
+    private LoggingOpenSearchClient loggingOpenSearchClient;
     private OpenSearchIndexFixture fixture;
 
     public KeywordAggregationTests(OpenSearchSharedResource openSearchSharedResource) {
-        this.openSearchClient = openSearchSharedResource.getOpenSearchClient();
+        this.loggingOpenSearchClient = openSearchSharedResource.getLoggingOpenSearchClient();
     }
 
     @BeforeEach
     public void setup() {
-        fixture = new OpenSearchIndexFixture(openSearchClient);
+        fixture = new OpenSearchIndexFixture(loggingOpenSearchClient.getClient(), loggingOpenSearchClient.getLogger());
     }
 
     /**
@@ -69,6 +69,8 @@ public class KeywordAggregationTests {
      */
     @Test
     public void keywordMapping_CanBeUsedForTermsAggregationOnSingleKeyword() throws Exception {
+        String testMethodName = "keywordMapping_CanBeUsedForTermsAggregationOnSingleKeyword";
+        
         // Create a test index with keyword mapping for the Name field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
                 mapping.properties("name", Property.of(p -> p.keyword(k -> k))))) {
@@ -83,8 +85,8 @@ public class KeywordAggregationTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            // Create a search request with terms aggregation
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            // Execute the search request with terms aggregation
+            SearchResponse<ProductDocument> response = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
                     .size(0) // We do not want any documents returned; just the aggregations
                     .aggregations("product_counts", a -> a
@@ -92,11 +94,8 @@ public class KeywordAggregationTests {
                                     .field("name")
                                     .size(10)
                             )
-                    )
-                    .build();
-
-            // Execute the search request
-            SearchResponse<ProductDocument> response = openSearchClient.search(searchRequest, ProductDocument.class);
+                    ),
+                    ProductDocument.class);
 
             // Verify the results
             assertThat(response.aggregations()).isNotNull();
@@ -131,6 +130,8 @@ public class KeywordAggregationTests {
      */
     @Test
     public void keywordMapping_CanBeUsedForTermsAggregationOnSingleKeywordWithNormalizer() throws Exception {
+        String testMethodName = "keywordMapping_CanBeUsedForTermsAggregationOnSingleKeywordWithNormalizer";
+        
         // Create a test index with keyword mapping and a lowercase normalizer for the Name field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(
                 // First parameter: Mapping configuration
@@ -158,8 +159,8 @@ public class KeywordAggregationTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            // Create a search request with terms aggregation
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            // Execute the search request with terms aggregation
+            SearchResponse<ProductDocument> response = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
                     .size(0) // We do not want any documents returned; just the aggregations
                     .aggregations("product_counts", a -> a
@@ -167,11 +168,8 @@ public class KeywordAggregationTests {
                                     .field("name")
                                     .size(10)
                             )
-                    )
-                    .build();
-
-            // Execute the search request
-            SearchResponse<ProductDocument> response = openSearchClient.search(searchRequest, ProductDocument.class);
+                    ),
+                    ProductDocument.class);
 
             // Verify the results
             assertThat(response.aggregations()).isNotNull();
@@ -223,8 +221,8 @@ public class KeywordAggregationTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            // Create a search request with terms aggregation
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            // Execute the search request with terms aggregation
+            SearchResponse<ProductDocumentWithMultipleNames> response = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
                     .size(0) // We do not want any documents returned; just the aggregations
                     .aggregations("product_counts", a -> a
@@ -232,11 +230,8 @@ public class KeywordAggregationTests {
                                     .field("names")
                                     .size(10)
                             )
-                    )
-                    .build();
-
-            // Execute the search request
-            SearchResponse<ProductDocumentWithMultipleNames> response = openSearchClient.search(searchRequest, ProductDocumentWithMultipleNames.class);
+                    ),
+                    ProductDocumentWithMultipleNames.class);
 
             // Verify the results
             assertThat(response.aggregations()).isNotNull();
@@ -285,10 +280,10 @@ public class KeywordAggregationTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            // Create a search request with a term query on "computer" and a terms aggregation
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            // Execute the search request with a term query on "computer" and a terms aggregation
+            // This test adds a query to reduce the overall applicable documents. Only 1 document will match and have its terms aggregated
+            SearchResponse<ProductDocumentWithMultipleNames> response = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
-                    // This test adds a query to reduce the overall applicable documents. Only 1 document will match and have its terms aggregated
                     .query(q -> q
                             .term(t -> t
                                     .field("names")
@@ -301,11 +296,8 @@ public class KeywordAggregationTests {
                                     .field("names")
                                     .size(10)
                             )
-                    )
-                    .build();
-
-            // Execute the search request
-            SearchResponse<ProductDocumentWithMultipleNames> response = openSearchClient.search(searchRequest, ProductDocumentWithMultipleNames.class);
+                    ),
+                    ProductDocumentWithMultipleNames.class);
 
             // Verify the results
             assertThat(response.aggregations()).isNotNull();
@@ -364,8 +356,8 @@ public class KeywordAggregationTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            // Create a search request with terms aggregation and includes filter using regexp
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            // Execute the search request with terms aggregation and includes filter using regexp
+            SearchResponse<ProductDocument> response = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
                     .size(0) // We do not want any documents returned; just the aggregations
                     .aggregations("product_counts", a -> a
@@ -374,11 +366,8 @@ public class KeywordAggregationTests {
                                     .size(10)
                                     .include(i -> i.regexp(includesPattern))
                             )
-                    )
-                    .build();
-
-            // Execute the search request
-            SearchResponse<ProductDocument> response = openSearchClient.search(searchRequest, ProductDocument.class);
+                    ),
+                    ProductDocument.class);
 
             // Verify the results
             assertThat(response.aggregations()).isNotNull();
@@ -436,8 +425,8 @@ public class KeywordAggregationTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            // Create a search request with terms aggregation and includes filter using explicit terms
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            // Execute the search request with terms aggregation and includes filter using explicit terms
+            SearchResponse<ProductDocument> response = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
                     .size(0) // We do not want any documents returned; just the aggregations
                     .aggregations("product_counts", a -> a
@@ -446,11 +435,8 @@ public class KeywordAggregationTests {
                                     .size(10)
                                     .include(i -> i.terms(Arrays.asList(includeTerms)))
                             )
-                    )
-                    .build();
-
-            // Execute the search request
-            SearchResponse<ProductDocument> response = openSearchClient.search(searchRequest, ProductDocument.class);
+                    ),
+                    ProductDocument.class);
 
             // Verify the results
             assertThat(response.aggregations()).isNotNull();
@@ -515,8 +501,8 @@ public class KeywordAggregationTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            // Create a search request with terms aggregation and excludes filter using regexp
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            // Execute the search request with terms aggregation and excludes filter using regexp
+            SearchResponse<ProductDocument> response = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
                     .size(0) // We do not want any documents returned; just the aggregations
                     .aggregations("product_counts", a -> a
@@ -525,11 +511,8 @@ public class KeywordAggregationTests {
                                     .size(10)
                                     .exclude(e -> e.regexp(excludesPattern))
                             )
-                    )
-                    .build();
-
-            // Execute the search request
-            SearchResponse<ProductDocument> response = openSearchClient.search(searchRequest, ProductDocument.class);
+                    ),
+                    ProductDocument.class);
 
             // Verify the results
             assertThat(response.aggregations()).isNotNull();
@@ -587,8 +570,8 @@ public class KeywordAggregationTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            // Create a search request with terms aggregation and excludes filter using explicit terms
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            // Execute the search request with terms aggregation and excludes filter using explicit terms
+            SearchResponse<ProductDocument> response = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
                     .size(0) // We do not want any documents returned; just the aggregations
                     .aggregations("product_counts", a -> a
@@ -597,11 +580,8 @@ public class KeywordAggregationTests {
                                     .size(10)
                                     .exclude(e -> e.terms(Arrays.asList(excludeTerms)))
                             )
-                    )
-                    .build();
-
-            // Execute the search request
-            SearchResponse<ProductDocument> response = openSearchClient.search(searchRequest, ProductDocument.class);
+                    ),
+                    ProductDocument.class);
 
             // Verify the results
             assertThat(response.aggregations()).isNotNull();
@@ -673,8 +653,8 @@ public class KeywordAggregationTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            // Create a search request with terms aggregation and includes filter using regexp
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            // Execute the search request with terms aggregation and includes filter using regexp
+            SearchResponse<ProductDocumentWithMultipleNames> response = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
                     .size(0) // We do not want any documents returned; just the aggregations
                     .aggregations("product_counts", a -> a
@@ -683,11 +663,8 @@ public class KeywordAggregationTests {
                                     .size(10)
                                     .include(i -> i.regexp(includesPattern))
                             )
-                    )
-                    .build();
-
-            // Execute the search request
-            SearchResponse<ProductDocumentWithMultipleNames> response = openSearchClient.search(searchRequest, ProductDocumentWithMultipleNames.class);
+                    ),
+                    ProductDocumentWithMultipleNames.class);
 
             // Verify the results
             assertThat(response.aggregations()).isNotNull();
@@ -750,8 +727,8 @@ public class KeywordAggregationTests {
 
             // The includeTerms is now directly a String array, no need for parsing
 
-            // Create a search request with terms aggregation and includes filter using explicit terms
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            // Execute the search request with terms aggregation and includes filter using explicit terms
+            SearchResponse<ProductDocumentWithMultipleNames> response = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
                     .size(0) // We do not want any documents returned; just the aggregations
                     .aggregations("product_counts", a -> a
@@ -760,11 +737,8 @@ public class KeywordAggregationTests {
                                     .size(10)
                                     .include(i -> i.terms(Arrays.asList(includeTerms)))
                             )
-                    )
-                    .build();
-
-            // Execute the search request
-            SearchResponse<ProductDocumentWithMultipleNames> response = openSearchClient.search(searchRequest, ProductDocumentWithMultipleNames.class);
+                    ),
+                    ProductDocumentWithMultipleNames.class);
 
             // Verify the results
             assertThat(response.aggregations()).isNotNull();
@@ -834,8 +808,8 @@ public class KeywordAggregationTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            // Create a search request with terms aggregation and excludes filter using regexp
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            // Execute the search request with terms aggregation and excludes filter using regexp
+            SearchResponse<ProductDocumentWithMultipleNames> response = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
                     .size(0) // We do not want any documents returned; just the aggregations
                     .aggregations("product_counts", a -> a
@@ -844,11 +818,8 @@ public class KeywordAggregationTests {
                                     .size(10)
                                     .exclude(e -> e.regexp(excludesPattern))
                             )
-                    )
-                    .build();
-
-            // Execute the search request
-            SearchResponse<ProductDocumentWithMultipleNames> response = openSearchClient.search(searchRequest, ProductDocumentWithMultipleNames.class);
+                    ),
+                    ProductDocumentWithMultipleNames.class);
 
             // Verify the results
             assertThat(response.aggregations()).isNotNull();
@@ -909,8 +880,8 @@ public class KeywordAggregationTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            // Create a search request with terms aggregation and excludes filter using explicit terms
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            // Execute the search request with terms aggregation and excludes filter using explicit terms
+            SearchResponse<ProductDocumentWithMultipleNames> response = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
                     .size(0) // We do not want any documents returned; just the aggregations
                     .aggregations("product_counts", a -> a
@@ -919,11 +890,8 @@ public class KeywordAggregationTests {
                                     .size(10)
                                     .exclude(e -> e.terms(Arrays.asList(excludeTerms)))
                             )
-                    )
-                    .build();
-
-            // Execute the search request
-            SearchResponse<ProductDocumentWithMultipleNames> response = openSearchClient.search(searchRequest, ProductDocumentWithMultipleNames.class);
+                    ),
+                    ProductDocumentWithMultipleNames.class);
 
             // Verify the results
             assertThat(response.aggregations()).isNotNull();
@@ -979,19 +947,16 @@ public class KeywordAggregationTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            // Create a search request with cardinality aggregation
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            // Execute the search request with cardinality aggregation
+            SearchResponse<ProductDocument> response = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
                     .size(0) // We do not want any documents returned; just the aggregations
                     .aggregations("distinctProductTypes", a -> a
                             .cardinality(c -> c
                                     .field("name")
                             )
-                    )
-                    .build();
-
-            // Execute the search request
-            SearchResponse<ProductDocument> response = openSearchClient.search(searchRequest, ProductDocument.class);
+                    ),
+                    ProductDocument.class);
 
             // Verify the results
             assertThat(response.aggregations()).isNotNull();
@@ -1024,8 +989,8 @@ public class KeywordAggregationTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            // Create a search request with terms aggregation and top hits sub-aggregation
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            // Execute the search request with terms aggregation and nested top hits aggregation
+            SearchResponse<ProductDocument> response = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
                     .size(0) // We do not want any documents returned; just the aggregations
                     .aggregations("productTypes", a -> a
@@ -1036,14 +1001,11 @@ public class KeywordAggregationTests {
                             .aggregations("topType", sa -> sa
                                     .topHits(th -> th
                                             .size(1)
-                                            .sort(s -> s.field(f -> f.field("rank").order(SortOrder.Desc)))
+                                            .sort(sort -> sort.field(f -> f.field("rank").order(SortOrder.Desc)))
                                     )
                             )
-                    )
-                    .build();
-
-            // Execute the search request
-            SearchResponse<ProductDocument> response = openSearchClient.search(searchRequest, ProductDocument.class);
+                    ),
+                    ProductDocument.class);
 
             // Verify the results
             assertThat(response.aggregations()).isNotNull();
@@ -1088,19 +1050,16 @@ public class KeywordAggregationTests {
             };
             testIndex.indexDocuments(productDocuments);
 
-            // Create a search request with field collapsing
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            // Execute the search request with field collapsing
+            SearchResponse<ProductDocument> response = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
                     .query(query -> query.matchAll(new MatchAllQuery.Builder().build()))
                     .collapse(c -> c
                             .field("name")
                     )
-                    .sort(s -> s.field(f -> f.field("rank").order(SortOrder.Desc)))
-                    .from(0)
-                    .build();
-
-            // Execute the search request
-            SearchResponse<ProductDocument> response = openSearchClient.search(searchRequest, ProductDocument.class);
+                    .sort(sort -> sort.field(f -> f.field("rank").order(SortOrder.Desc)))
+                    .from(0),
+                    ProductDocument.class);
 
             // Verify the results
             assertThat(response.hits().hits()).hasSize(2);
@@ -1125,6 +1084,8 @@ public class KeywordAggregationTests {
      */
     @Test
     public void keywordMapping_CanBeUsedForAdjacencyMatrixAggregation() throws Exception {
+        String testMethodName = "keywordMapping_CanBeUsedForAdjacencyMatrixAggregation";
+        
         // Create a test index with keyword mapping for the ProductNames field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
                 mapping.properties("productNames", Property.of(p -> p.keyword(k -> k))))) {
@@ -1146,21 +1107,17 @@ public class KeywordAggregationTests {
                     "mouse pad", Query.of(q -> q.term(t -> t.field("productNames").value(FieldValue.of("mouse pad")))),
                     "keyboard", Query.of(q -> q.term(t -> t.field("productNames").value(FieldValue.of("keyboard")))));
 
-            // Create a search request with adjacency matrix aggregation
-            SearchRequest searchRequest = new SearchRequest.Builder()
+            // Execute the search request with automatic logging
+            SearchResponse<UserFavouriteProducts> response = loggingOpenSearchClient.search(s -> s
                     .index(testIndex.getName())
                     .query(builder -> builder.matchAll(new MatchAllQuery.Builder().build()))
                     .aggregations("product_matrix", a -> a
                             .adjacencyMatrix(am -> am
                                     .filters(filterMap)
                             )
-                    )
-                    .build();
-
-            OpenSearchRequestLogger.LogRequestJson(searchRequest);
-
-            // Execute the search request
-            SearchResponse<UserFavouriteProducts> response = openSearchClient.search(searchRequest, UserFavouriteProducts.class);
+                    ),
+                    UserFavouriteProducts.class
+            );
 
             // Verify the results
             assertThat(response.aggregations()).isNotNull();

@@ -1,6 +1,7 @@
 package NumericFieldDataTypes.FloatDemo;
 
 import NumericFieldDataTypes.FloatDemo.Documents.ProductDocument;
+import TestExtensions.LoggingOpenSearchClient;
 import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
 import TestInfrastructure.OpenSearchIndexFixture;
@@ -16,7 +17,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.FieldValue;
 import org.opensearch.client.opensearch._types.mapping.Property;
 import org.opensearch.client.opensearch.core.SearchResponse;
@@ -35,16 +35,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class FloatSearchingTests {
     private static final Logger logger = LogManager.getLogger(FloatSearchingTests.class);
 
-    private OpenSearchClient openSearchClient;
+    private LoggingOpenSearchClient loggingOpenSearchClient;
     private OpenSearchIndexFixture fixture;
 
     public FloatSearchingTests(OpenSearchSharedResource openSearchSharedResource) {
-        this.openSearchClient = openSearchSharedResource.getOpenSearchClient();
+        this.loggingOpenSearchClient = openSearchSharedResource.getLoggingOpenSearchClient();
     }
 
     @BeforeEach
     public void setup() {
-        fixture = new OpenSearchIndexFixture(openSearchClient);
+        fixture = new OpenSearchIndexFixture(loggingOpenSearchClient.getClient(), loggingOpenSearchClient.getLogger());
     }
 
     /**
@@ -76,7 +76,7 @@ public class FloatSearchingTests {
             testIndex.indexDocuments(productDocuments);
 
             // Search for documents with a term query
-            SearchResponse<ProductDocument> result = openSearchClient.search(s -> s
+            SearchResponse<ProductDocument> result = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .term(t -> t
@@ -118,7 +118,7 @@ public class FloatSearchingTests {
             testIndex.indexDocuments(productDocuments);
 
             // Search for documents with a boolean query
-            SearchResponse<ProductDocument> result = openSearchClient.search(s -> s
+            SearchResponse<ProductDocument> result = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .bool(b -> b
@@ -187,7 +187,7 @@ public class FloatSearchingTests {
             testIndex.indexDocuments(productDocuments);
 
             // Search for documents with a range query
-            SearchResponse<ProductDocument> result = openSearchClient.search(s -> s
+            SearchResponse<ProductDocument> result = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .range(r -> r
@@ -242,7 +242,7 @@ public class FloatSearchingTests {
             testIndex.indexDocuments(productDocuments);
 
             // Search for documents with a match query
-            SearchResponse<ProductDocument> result = openSearchClient.search(s -> s
+            SearchResponse<ProductDocument> result = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .match(m -> m
