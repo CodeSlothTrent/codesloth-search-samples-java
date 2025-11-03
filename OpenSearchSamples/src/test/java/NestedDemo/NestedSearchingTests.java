@@ -58,7 +58,10 @@ public class NestedSearchingTests {
     public void nestedMapping_SingleField_CanSearchByDottedNotation() throws Exception {
         // Create a test index with nested mapping for the attribute field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
-                mapping.properties("attribute", Property.of(p -> p.nested(n -> n))))) {
+                mapping.properties("attribute", Property.of(p -> p.nested(n -> n
+                        .properties("color", Property.of(prop -> prop.keyword(k -> k)))
+                        .properties("size", Property.of(prop -> prop.keyword(k -> k)))
+                ))))) {
 
             // Create documents with attributes containing multiple properties
             ProductWithNestedAttribute[] products = new ProductWithNestedAttribute[]{
@@ -129,7 +132,10 @@ public class NestedSearchingTests {
     public void nestedMapping_SingleField_CanMatchMultiplePropertiesFromSameObject() throws Exception {
         // Create a test index with nested mapping for the attribute field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
-                mapping.properties("attribute", Property.of(p -> p.nested(n -> n))))) {
+                mapping.properties("attribute", Property.of(p -> p.nested(n -> n
+                        .properties("color", Property.of(prop -> prop.keyword(k -> k)))
+                        .properties("size", Property.of(prop -> prop.keyword(k -> k)))
+                ))))) {
 
             // Create documents with attributes containing multiple properties
             ProductWithNestedAttribute[] products = new ProductWithNestedAttribute[]{
@@ -324,8 +330,15 @@ public class NestedSearchingTests {
     @Test
     public void nestedMapping_NestedNestedField_CanSearchByNestedDottedNotation() throws Exception {
         // Create a test index with nested mapping for the details field
+        // The attribute field is also nested, not object, requiring nested -> query -> nested -> query structure
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
-                mapping.properties("details", Property.of(p -> p.nested(n -> n))))) {
+                mapping.properties("details", Property.of(p -> p.nested(n -> n
+                        .properties("attribute", Property.of(attr -> attr.nested(n2 -> n2
+                                .properties("color", Property.of(prop -> prop.keyword(k -> k)))
+                                .properties("size", Property.of(prop -> prop.keyword(k -> k)))
+                        )))
+                        .properties("description", Property.of(prop -> prop.keyword(k -> k)))
+                ))))) {
 
             // Create documents with nested attribute structures
             ProductWithNestedDetails[] products = new ProductWithNestedDetails[]{
@@ -344,16 +357,21 @@ public class NestedSearchingTests {
             };
             testIndex.indexDocuments(products);
 
-            // Search using nested query: details.attribute.color
+            // Search using nested -> query -> nested -> query structure: details.attribute.color
             SearchResponse<ProductWithNestedDetails> result = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .nested(n -> n
                                             .path("details")
                                             .query(q2 -> q2
-                                                    .term(t -> t
-                                                            .field("details.attribute.color")
-                                                            .value(FieldValue.of("red"))
+                                                    .nested(n2 -> n2
+                                                            .path("details.attribute")
+                                                            .query(q3 -> q3
+                                                                    .term(t -> t
+                                                                            .field("details.attribute.color")
+                                                                            .value(FieldValue.of("red"))
+                                                                    )
+                                                            )
                                                     )
                                             )
                                     )
@@ -386,7 +404,10 @@ public class NestedSearchingTests {
     public void nestedMapping_ArrayOfObjects_CanMatchMultipleValuesFromSameObject() throws Exception {
         // Create a test index with nested mapping for the attributes array field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
-                mapping.properties("attributes", Property.of(p -> p.nested(n -> n))))) {
+                mapping.properties("attributes", Property.of(p -> p.nested(n -> n
+                        .properties("color", Property.of(prop -> prop.keyword(k -> k)))
+                        .properties("size", Property.of(prop -> prop.keyword(k -> k)))
+                ))))) {
 
             // Create a document with an array of attributes where each object has multiple properties
             List<ProductAttribute> attributes = new ArrayList<>();

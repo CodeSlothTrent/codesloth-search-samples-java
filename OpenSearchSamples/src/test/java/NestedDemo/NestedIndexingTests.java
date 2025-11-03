@@ -55,7 +55,10 @@ public class NestedIndexingTests {
     public void nestedMapping_IndexesObjectWithSubProperties() throws Exception {
         // Create a test index with nested mapping for the attribute field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
-                mapping.properties("attribute", Property.of(p -> p.nested(n -> n))))) {
+                mapping.properties("attribute", Property.of(p -> p.nested(n -> n
+                        .properties("color", Property.of(prop -> prop.keyword(k -> k)))
+                        .properties("size", Property.of(prop -> prop.keyword(k -> k)))
+                ))))) {
 
             // Create and index a product document with a strongly-typed record
             // ProductAttribute: (color, size)
@@ -93,7 +96,10 @@ public class NestedIndexingTests {
     public void nestedMapping_SubPropertiesIndexedAsObjects() throws Exception {
         // Create a test index with nested mapping for the attribute field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
-                mapping.properties("attribute", Property.of(p -> p.nested(n -> n))))) {
+                mapping.properties("attribute", Property.of(p -> p.nested(n -> n
+                        .properties("color", Property.of(prop -> prop.keyword(k -> k)))
+                        .properties("size", Property.of(prop -> prop.keyword(k -> k)))
+                ))))) {
 
             // Create and index a product document with a strongly-typed record
             ProductWithNestedAttribute productDocument = new ProductWithNestedAttribute(
@@ -129,7 +135,10 @@ public class NestedIndexingTests {
     public void nestedMapping_NestedObjectsCountTowardsDocumentCount() throws Exception {
         // Create a test index with nested mapping for the attributes array field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
-                mapping.properties("attributes", Property.of(p -> p.nested(n -> n))))) {
+                mapping.properties("attributes", Property.of(p -> p.nested(n -> n
+                        .properties("color", Property.of(prop -> prop.keyword(k -> k)))
+                        .properties("size", Property.of(prop -> prop.keyword(k -> k)))
+                ))))) {
 
             // Create a document with an array of 3 nested attributes
             List<ProductAttribute> attributes = new ArrayList<>();
@@ -183,7 +192,10 @@ public class NestedIndexingTests {
     public void nestedMapping_SingleNestedObjectAlsoCountsAsDocument() throws Exception {
         // Create a test index with nested mapping for the attribute field (single object, not array)
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
-                mapping.properties("attribute", Property.of(p -> p.nested(n -> n))))) {
+                mapping.properties("attribute", Property.of(p -> p.nested(n -> n
+                        .properties("color", Property.of(prop -> prop.keyword(k -> k)))
+                        .properties("size", Property.of(prop -> prop.keyword(k -> k)))
+                ))))) {
 
             // Create a document with a single nested attribute (not an array)
             ProductWithNestedAttribute product = new ProductWithNestedAttribute(
