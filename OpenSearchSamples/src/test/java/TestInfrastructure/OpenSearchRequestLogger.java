@@ -120,6 +120,40 @@ public class OpenSearchRequestLogger {
         }
     }
 
+    /**
+     * Logs an exception (console and file).
+     * Always logs to console and writes to file if capture is enabled.
+     * 
+     * @param exception The exception to log
+     */
+    public void logException(Exception exception) {
+        String exceptionMessage = exception.getClass().getSimpleName() + ": " + exception.getMessage();
+        String stackTrace = getStackTrace(exception);
+        
+        logger.error(exceptionMessage, exception);
+        
+        if (captureEnabled) {
+            responseCounter++;
+            try {
+                fileWriter.write("=== EXCEPTION #" + responseCounter + " ===\n");
+                fileWriter.write(exceptionMessage);
+                fileWriter.write("\n");
+                fileWriter.write(stackTrace);
+                fileWriter.write("\n\n");
+                fileWriter.flush();
+            } catch (IOException e) {
+                System.err.println("Failed to write exception to file: " + e.getMessage());
+            }
+        }
+    }
+    
+    private String getStackTrace(Exception exception) {
+        java.io.StringWriter sw = new java.io.StringWriter();
+        java.io.PrintWriter pw = new java.io.PrintWriter(sw);
+        exception.printStackTrace(pw);
+        return sw.toString();
+    }
+
     // Private helper methods for file writing
     
     private synchronized void writeRequestToFile(String requestBody) {

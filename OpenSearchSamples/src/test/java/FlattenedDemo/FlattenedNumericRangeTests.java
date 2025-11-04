@@ -7,8 +7,6 @@ import TestExtensions.OpenSearchResourceManagementExtension;
 import TestExtensions.OpenSearchSharedResource;
 import TestInfrastructure.OpenSearchIndexFixture;
 import TestInfrastructure.OpenSearchTestIndex;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,8 +34,6 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @ExtendWith(OpenSearchResourceManagementExtension.class)
 public class FlattenedNumericRangeTests {
-    private static final Logger logger = LogManager.getLogger(FlattenedNumericRangeTests.class);
-
     private LoggingOpenSearchClient loggingOpenSearchClient;
     private OpenSearchIndexFixture fixture;
 
@@ -87,10 +83,15 @@ public class FlattenedNumericRangeTests {
 
             // The query will fail because ASCII comparison order is: "1", "10", "100", "1000", "2"
             // So "1" <= x <= "10" matches "1", "10", "100", "1000" but not "2"
-            // This demonstrates why zero-padding is required
-            assertThat(result.hits().total().value()).isNotEqualTo(3); // Expected 3 (1, 2, 10) but will be wrong
-            logger.info("Unpadded numbers query result count: {} (expected 3, but will be incorrect due to ASCII comparison)", 
-                    result.hits().total().value());
+            // Expected 3 (1, 2, 10) but will be wrong due to ASCII comparison
+            assertThat(result.hits().total().value()).isNotEqualTo(3);
+            
+            // Verify the actual incorrect results: matches "1", "10", "100", "1000" but excludes "2"
+            List<String> matchedIds = result.hits().hits().stream()
+                    .map(h -> h.source().getId())
+                    .sorted()
+                    .collect(Collectors.toList());
+            assertThat(matchedIds).containsExactly("1", "3", "4", "5"); // Missing "2"!
         }
     }
 
@@ -560,9 +561,15 @@ public class FlattenedNumericRangeTests {
             // The results will be incorrect due to mixed padding
             // ASCII order: "0002" < "0010" < "1" < "10"
             // So "1" <= x <= "10" matches "1", "10", but also "0002" and "0010" (which are numerically 2 and 10)
-            logger.info("Mixed padding query result count: {} (demonstrates incorrect results)", 
-                    result.hits().total().value());
-            assertThat(result.hits().total().value()).isNotEqualTo(3); // Expected 3 (1, 2, 10) but will be wrong
+            // Expected 3 (1, 2, 10) but will be wrong due to mixed padding
+            assertThat(result.hits().total().value()).isNotEqualTo(3);
+            
+            // Verify the actual incorrect results: includes padded values that shouldn't be in range
+            List<String> matchedIds = result.hits().hits().stream()
+                    .map(h -> h.source().getId())
+                    .sorted()
+                    .collect(Collectors.toList());
+            assertThat(matchedIds).containsExactly("1", "2", "3", "4"); // Includes all due to mixed padding
         }
     }
 }

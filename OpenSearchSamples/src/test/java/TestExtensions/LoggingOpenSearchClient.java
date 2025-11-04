@@ -14,6 +14,8 @@ import org.opensearch.client.opensearch.indices.GetMappingRequest;
 import org.opensearch.client.opensearch.indices.GetMappingResponse;
 import org.opensearch.client.opensearch.indices.IndicesStatsRequest;
 import org.opensearch.client.opensearch.indices.IndicesStatsResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.function.Function;
@@ -24,6 +26,7 @@ import java.util.function.Function;
  * Each instance is scoped to a test class.
  */
 public class LoggingOpenSearchClient {
+    private static final Logger log = LoggerFactory.getLogger(LoggingOpenSearchClient.class);
     private final OpenSearchClient client;
     private final OpenSearchRequestLogger logger;
 
@@ -57,9 +60,14 @@ public class LoggingOpenSearchClient {
         var builder = new SearchRequest.Builder();
         var request = fn.apply(builder).build();
         logger.logRequest(client, request);
-        SearchResponse<T> response = client.search(request, clazz);
-        logger.logResponse(client, response);
-        return response;
+        try {
+            SearchResponse<T> response = client.search(request, clazz);
+            logger.logResponse(client, response);
+            return response;
+        } catch (Exception e) {
+            logger.logException(e);
+            throw e;
+        }
     }
 
     /**
@@ -69,9 +77,14 @@ public class LoggingOpenSearchClient {
         var builder = new TermvectorsRequest.Builder<>();
         var request = fn.apply(builder).build();
         logger.logRequest(client, request);
-        TermvectorsResponse response = client.termvectors((TermvectorsRequest<Object>) request);
-        logger.logResponse(client, response);
-        return response;
+        try {
+            TermvectorsResponse response = client.termvectors((TermvectorsRequest<Object>) request);
+            logger.logResponse(client, response);
+            return response;
+        } catch (Exception e) {
+            logger.logException(e);
+            throw e;
+        }
     }
 
     /**
@@ -84,13 +97,18 @@ public class LoggingOpenSearchClient {
         // Log the request
         logger.logRequest(client, request);
         
-        // Perform the request
-        CountResponse response = client.count(request);
-        
-        // Log the response
-        logger.logResponse(client, response);
-        
-        return response;
+        try {
+            // Perform the request
+            CountResponse response = client.count(request);
+            
+            // Log the response
+            logger.logResponse(client, response);
+            
+            return response;
+        } catch (Exception e) {
+            logger.logException(e);
+            throw e;
+        }
     }
 
     /**
@@ -103,13 +121,18 @@ public class LoggingOpenSearchClient {
         // Log the request
         logger.logRequest(client, request);
         
-        // Perform the request
-        GetResponse<T> response = client.get(request, clazz);
-        
-        // Log the response
-        logger.logResponse(client, response);
-        
-        return response;
+        try {
+            // Perform the request
+            GetResponse<T> response = client.get(request, clazz);
+            
+            // Log the response
+            logger.logResponse(client, response);
+            
+            return response;
+        } catch (Exception e) {
+            logger.logException(e);
+            throw e;
+        }
     }
 
     /**
@@ -122,13 +145,18 @@ public class LoggingOpenSearchClient {
         // Log the request
         logger.logRequest(client, request);
         
-        // Perform the request
-        GetMappingResponse response = client.indices().getMapping(request);
-        
-        // Log the response
-        logger.logResponse(client, response);
-        
-        return response;
+        try {
+            // Perform the request
+            GetMappingResponse response = client.indices().getMapping(request);
+            
+            // Log the response
+            logger.logResponse(client, response);
+            
+            return response;
+        } catch (Exception e) {
+            logger.logException(e);
+            throw e;
+        }
     }
 
     /**
@@ -148,12 +176,17 @@ public class LoggingOpenSearchClient {
         // Log the request
         logger.logRequest(client, statsRequest);
         
-        // Perform the request
-        IndicesStatsResponse response = client.indices().stats(statsRequest);
-        
-        // Log the response
-        logger.logResponse(client, response);
-        
-        return response;
+        try {
+            // Perform the request
+            IndicesStatsResponse response = client.indices().stats(statsRequest);
+            
+            // Log the response
+            logger.logResponse(client, response);
+            
+            return response;
+        } catch (Exception e) {
+            logger.logException(e);
+            throw e;
+        }
     }
 }
