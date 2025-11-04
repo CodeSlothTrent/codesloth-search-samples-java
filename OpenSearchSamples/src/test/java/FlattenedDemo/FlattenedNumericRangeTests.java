@@ -241,12 +241,12 @@ public class FlattenedNumericRangeTests {
     }
 
     /**
-     * Tests that zero-padding works correctly for single point queries (gte, lte, gt, lt).
+     * Tests that zero-padded numbers work with gte (greater than or equal) single point queries.
      * 
      * @throws Exception If an I/O error occurs
      */
     @Test
-    public void flattenedNumericRange_ZeroPaddedNumbers_SinglePointQueries() throws Exception {
+    public void flattenedNumericRange_ZeroPaddedNumbers_GreaterThanOrEqualSinglePoint() throws Exception {
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
                 mapping.properties("attribute", Property.of(p -> p.flatObject(f -> f))))) {
 
@@ -259,8 +259,8 @@ public class FlattenedNumericRangeTests {
             };
             testIndex.indexDocuments(products);
 
-            // Test gte (greater than or equal)
-            SearchResponse<ProductWithNumericAttribute> gteResult = loggingOpenSearchClient.search(s -> s
+            // Query for values >= 0002
+            SearchResponse<ProductWithNumericAttribute> result = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .range(r -> r
@@ -272,14 +272,35 @@ public class FlattenedNumericRangeTests {
             );
 
             // Should match Product2 (0002), Product3 (0010), and Product4 (0100)
-            assertThat(gteResult.hits().total().value()).isEqualTo(3);
-            assertThat(gteResult.hits().hits().stream()
+            assertThat(result.hits().total().value()).isEqualTo(3);
+            assertThat(result.hits().hits().stream()
                     .map(h -> h.source().getId())
                     .sorted())
                     .containsExactly("2", "3", "4");
+        }
+    }
 
-            // Test lte (less than or equal)
-            SearchResponse<ProductWithNumericAttribute> lteResult = loggingOpenSearchClient.search(s -> s
+    /**
+     * Tests that zero-padded numbers work with lte (less than or equal) single point queries.
+     * 
+     * @throws Exception If an I/O error occurs
+     */
+    @Test
+    public void flattenedNumericRange_ZeroPaddedNumbers_LessThanOrEqualSinglePoint() throws Exception {
+        try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
+                mapping.properties("attribute", Property.of(p -> p.flatObject(f -> f))))) {
+
+            // Create documents with zero-padded numbers (4 digits)
+            ProductWithNumericAttribute[] products = new ProductWithNumericAttribute[]{
+                    new ProductWithNumericAttribute("1", "Product1", new NumericAttribute("0001")),
+                    new ProductWithNumericAttribute("2", "Product2", new NumericAttribute("0002")),
+                    new ProductWithNumericAttribute("3", "Product3", new NumericAttribute("0010")),
+                    new ProductWithNumericAttribute("4", "Product4", new NumericAttribute("0100"))
+            };
+            testIndex.indexDocuments(products);
+
+            // Query for values <= 0002
+            SearchResponse<ProductWithNumericAttribute> result = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .range(r -> r
@@ -291,14 +312,35 @@ public class FlattenedNumericRangeTests {
             );
 
             // Should match Product1 (0001) and Product2 (0002)
-            assertThat(lteResult.hits().total().value()).isEqualTo(2);
-            assertThat(lteResult.hits().hits().stream()
+            assertThat(result.hits().total().value()).isEqualTo(2);
+            assertThat(result.hits().hits().stream()
                     .map(h -> h.source().getId())
                     .sorted())
                     .containsExactly("1", "2");
+        }
+    }
 
-            // Test gt (greater than)
-            SearchResponse<ProductWithNumericAttribute> gtResult = loggingOpenSearchClient.search(s -> s
+    /**
+     * Tests that zero-padded numbers work with gt (greater than) single point queries.
+     * 
+     * @throws Exception If an I/O error occurs
+     */
+    @Test
+    public void flattenedNumericRange_ZeroPaddedNumbers_GreaterThanSinglePoint() throws Exception {
+        try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
+                mapping.properties("attribute", Property.of(p -> p.flatObject(f -> f))))) {
+
+            // Create documents with zero-padded numbers (4 digits)
+            ProductWithNumericAttribute[] products = new ProductWithNumericAttribute[]{
+                    new ProductWithNumericAttribute("1", "Product1", new NumericAttribute("0001")),
+                    new ProductWithNumericAttribute("2", "Product2", new NumericAttribute("0002")),
+                    new ProductWithNumericAttribute("3", "Product3", new NumericAttribute("0010")),
+                    new ProductWithNumericAttribute("4", "Product4", new NumericAttribute("0100"))
+            };
+            testIndex.indexDocuments(products);
+
+            // Query for values > 0002
+            SearchResponse<ProductWithNumericAttribute> result = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .range(r -> r
@@ -310,14 +352,35 @@ public class FlattenedNumericRangeTests {
             );
 
             // Should match only Product3 (0010) and Product4 (0100), not Product2 (exact match)
-            assertThat(gtResult.hits().total().value()).isEqualTo(2);
-            assertThat(gtResult.hits().hits().stream()
+            assertThat(result.hits().total().value()).isEqualTo(2);
+            assertThat(result.hits().hits().stream()
                     .map(h -> h.source().getId())
                     .sorted())
                     .containsExactly("3", "4");
+        }
+    }
 
-            // Test lt (less than)
-            SearchResponse<ProductWithNumericAttribute> ltResult = loggingOpenSearchClient.search(s -> s
+    /**
+     * Tests that zero-padded numbers work with lt (less than) single point queries.
+     * 
+     * @throws Exception If an I/O error occurs
+     */
+    @Test
+    public void flattenedNumericRange_ZeroPaddedNumbers_LessThanSinglePoint() throws Exception {
+        try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
+                mapping.properties("attribute", Property.of(p -> p.flatObject(f -> f))))) {
+
+            // Create documents with zero-padded numbers (4 digits)
+            ProductWithNumericAttribute[] products = new ProductWithNumericAttribute[]{
+                    new ProductWithNumericAttribute("1", "Product1", new NumericAttribute("0001")),
+                    new ProductWithNumericAttribute("2", "Product2", new NumericAttribute("0002")),
+                    new ProductWithNumericAttribute("3", "Product3", new NumericAttribute("0010")),
+                    new ProductWithNumericAttribute("4", "Product4", new NumericAttribute("0100"))
+            };
+            testIndex.indexDocuments(products);
+
+            // Query for values < 0002
+            SearchResponse<ProductWithNumericAttribute> result = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .range(r -> r
@@ -329,8 +392,8 @@ public class FlattenedNumericRangeTests {
             );
 
             // Should match only Product1 (0001), not Product2 (exact match)
-            assertThat(ltResult.hits().total().value()).isEqualTo(1);
-            assertThat(ltResult.hits().hits().get(0).source().getId()).isEqualTo("1");
+            assertThat(result.hits().total().value()).isEqualTo(1);
+            assertThat(result.hits().hits().get(0).source().getId()).isEqualTo("1");
         }
     }
 
