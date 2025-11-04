@@ -16,6 +16,9 @@ import org.opensearch.client.opensearch._types.mapping.Property;
 import org.opensearch.client.opensearch.core.SearchResponse;
 import org.opensearch.client.json.JsonData;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -197,46 +200,169 @@ public class FlattenedNumericRangeTests {
     }
 
     /**
-     * Tests negative numbers with zero-padding.
+     * Tests that unpadded negative numbers fail range queries on flattened fields.
      * Negative numbers have a "-" prefix, which affects ASCII comparison.
+     * Unpadded negative numbers suffer from the same ASCII ordering issues as positive numbers.
      * 
      * @throws Exception If an I/O error occurs
      */
     @Test
-    public void flattenedNumericRange_NegativeNumbers_WithZeroPadding() throws Exception {
+    public void flattenedNumericRange_UnpaddedNegativeNumbers_FailsRangeQueries() throws Exception {
+        // Create a test index with flattened mapping for the attribute field
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
                 mapping.properties("attribute", Property.of(p -> p.flatObject(f -> f))))) {
 
-            // Create documents with negative numbers (various padding approaches)
+            // Create documents with unpadded negative numbers
+            // ASCII order: "-1", "-10", "-100", "-2", "0", "1", "10" (partial order)
             ProductWithNumericAttribute[] products = new ProductWithNumericAttribute[]{
-                    new ProductWithNumericAttribute("1", "Product1", new NumericAttribute("-1")),
+                    new ProductWithNumericAttribute("1", "Product1", new NumericAttribute("-100")),
                     new ProductWithNumericAttribute("2", "Product2", new NumericAttribute("-10")),
-                    new ProductWithNumericAttribute("3", "Product3", new NumericAttribute("-001")),
-                    new ProductWithNumericAttribute("4", "Product4", new NumericAttribute("-0001")),
-                    new ProductWithNumericAttribute("5", "Product5", new NumericAttribute("-0000000001"))
+                    new ProductWithNumericAttribute("3", "Product3", new NumericAttribute("-2")),
+                    new ProductWithNumericAttribute("4", "Product4", new NumericAttribute("-1")),
+                    new ProductWithNumericAttribute("5", "Product5", new NumericAttribute("0")),
+                    new ProductWithNumericAttribute("6", "Product6", new NumericAttribute("1")),
+                    new ProductWithNumericAttribute("7", "Product7", new NumericAttribute("10"))
             };
             testIndex.indexDocuments(products);
 
-            // Query for negative values
-            // Note: In ASCII comparison, "-0000000001" < "-0001" < "-001" < "-1" < "-10"
-            // This is because "-" comes before digits, so "-0000000001" is the smallest
+            // Query for range [-10, 10] with unpadded numbers
+            // The query fails because ASCII comparison doesn't match numeric ordering for negative numbers
+            // Result: Matches "-10", "-100", "-2", "0", "1", "10" but incorrectly excludes "-1"
             SearchResponse<ProductWithNumericAttribute> result = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .range(r -> r
                                             .field("attribute.value")
                                             .gte(JsonData.of("-10"))
-                                            .lte(JsonData.of("-1"))
+                                            .lte(JsonData.of("10"))
                                     )
                             ),
                     ProductWithNumericAttribute.class
             );
 
-            // In ASCII comparison: "-1" < "-10" (because "-1" < "-10" character by character)
-            // So "-10" <= x <= "-1" will match "-1" and "-10"
-            // But this is incorrect numerically (we expect -10 to -1)
-            logger.info("Negative numbers query result count: {}", result.hits().total().value());
-            logger.info("This demonstrates that negative numbers have complex ASCII comparison behavior");
+            // Demonstrates the failure with unpadded negative numbers
+            assertThat(result.hits().total().value()).isEqualTo(6); // "-10", "-100", "-2", "0", "1", "10"
+            
+            List<String> matchedIds = result.hits().hits().stream()
+                    .map(h -> h.source().getId())
+                    .sorted()
+                    .collect(Collectors.toList());
+
+            // "-1" is missing even though it should be in the range [-10, 10] numerically
+            // This demonstrates the unpredictable behavior with unpadded negative numbers
+            assertThat(matchedIds).containsExactly("1", "2", "3", "5", "6", "7"); // Missing "4" (-1)!
+        }
+    }
+
+    /**
+     * Tests zero-padded negative numbers with range queries on flattened fields.
+     * This test demonstrates that zero-padding alone does NOT solve the problem for negative numbers
+     * when the range spans from negative to positive values, due to ASCII comparison issues.
+     * 
+     * @throws Exception If an I/O error occurs
+     */
+    @Test
+    public void flattenedNumericRange_ZeroPaddedNegativeNumbers_StillFailsForMixedRanges() throws Exception {
+        // Create a test index with flattened mapping for the attribute field
+        try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
+                mapping.properties("attribute", Property.of(p -> p.flatObject(f -> f))))) {
+
+            // Create documents with zero-padded negative numbers (4 digits after minus sign)
+            ProductWithNumericAttribute[] products = new ProductWithNumericAttribute[]{
+                    new ProductWithNumericAttribute("1", "Product1", new NumericAttribute("-0100")),
+                    new ProductWithNumericAttribute("2", "Product2", new NumericAttribute("-0010")),
+                    new ProductWithNumericAttribute("3", "Product3", new NumericAttribute("-0002")),
+                    new ProductWithNumericAttribute("4", "Product4", new NumericAttribute("-0001")),
+                    new ProductWithNumericAttribute("5", "Product5", new NumericAttribute("0000")),
+                    new ProductWithNumericAttribute("6", "Product6", new NumericAttribute("0001")),
+                    new ProductWithNumericAttribute("7", "Product7", new NumericAttribute("0010"))
+            };
+            testIndex.indexDocuments(products);
+
+            // Query for range [-10, 10] with padded numbers
+            // Zero-padding alone doesn't solve the problem: "-0002" and "-0001" are < "-0010" in ASCII
+            // Result: Matches "-0010", "-0100", "0000", "0001", "0010" but incorrectly excludes "-0002" and "-0001"
+            SearchResponse<ProductWithNumericAttribute> result = loggingOpenSearchClient.search(s -> s
+                            .index(testIndex.getName())
+                            .query(q -> q
+                                    .range(r -> r
+                                            .field("attribute.value")
+                                            .gte(JsonData.of("-0010"))
+                                            .lte(JsonData.of("0010"))
+                                    )
+                            ),
+                    ProductWithNumericAttribute.class
+            );
+
+            // The result shows that even with zero-padding, negative numbers don't work correctly
+            // The query matches "-0010", "-0100", "0000", "0001", "0010" but misses "-0002" and "-0001"
+            assertThat(result.hits().total().value()).isEqualTo(5); // "-0010", "-0100", "0000", "0001", "0010"
+            
+            List<String> matchedIds = result.hits().hits().stream()
+                    .map(h -> h.source().getId())
+                    .sorted()
+                    .collect(Collectors.toList());
+
+            // Missing "-0002" (ID 3) and "-0001" (ID 4) because they are < "-0010" in ASCII
+            // This demonstrates that zero-padding doesn't fully solve the problem for negative numbers
+            assertThat(matchedIds).containsExactly("1", "2", "5", "6", "7"); // Missing "3" (-0002) and "4" (-0001)!
+        }
+    }
+
+    /**
+     * Tests that two's complement approach works correctly with range queries on flattened fields.
+     * By adding Integer.MIN_VALUE (2,147,483,648) to all values, negatives become positive and
+     * all values can be stored as zero-padded strings without signs, ensuring correct ASCII ordering.
+     * 
+     * @throws Exception If an I/O error occurs
+     */
+    @Test
+    public void flattenedNumericRange_TwosComplement_WorksWithRangeQueries() throws Exception {
+        // Create a test index with flattened mapping for the attribute field
+        try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
+                mapping.properties("attribute", Property.of(p -> p.flatObject(f -> f))))) {
+
+            // Two's complement offset: Integer.MIN_VALUE absolute value = 2,147,483,648
+            // This converts all negative numbers to positive, ensuring correct ASCII ordering
+            // All values are zero-padded to 10 digits (max value after offset: 4,294,967,295)
+            final long offset = 2147483648L; // |Integer.MIN_VALUE|
+            
+            ProductWithNumericAttribute[] products = new ProductWithNumericAttribute[]{
+                    new ProductWithNumericAttribute("1", "Product1", new NumericAttribute(String.format("%010d", -100 + offset))),
+                    new ProductWithNumericAttribute("2", "Product2", new NumericAttribute(String.format("%010d", -10 + offset))),
+                    new ProductWithNumericAttribute("3", "Product3", new NumericAttribute(String.format("%010d", -2 + offset))),
+                    new ProductWithNumericAttribute("4", "Product4", new NumericAttribute(String.format("%010d", -1 + offset))),
+                    new ProductWithNumericAttribute("5", "Product5", new NumericAttribute(String.format("%010d", 0 + offset))),
+                    new ProductWithNumericAttribute("6", "Product6", new NumericAttribute(String.format("%010d", 1 + offset))),
+                    new ProductWithNumericAttribute("7", "Product7", new NumericAttribute(String.format("%010d", 10 + offset)))
+            };
+            testIndex.indexDocuments(products);
+
+            // Query for range [-10, 10] using two's complement offset values
+            // Convert range bounds to offset values: -10 + offset and 10 + offset
+            SearchResponse<ProductWithNumericAttribute> result = loggingOpenSearchClient.search(s -> s
+                            .index(testIndex.getName())
+                            .query(q -> q
+                                    .range(r -> r
+                                            .field("attribute.value")
+                                            .gte(JsonData.of(String.format("%010d", -10 + offset)))
+                                            .lte(JsonData.of(String.format("%010d", 10 + offset)))
+                                    )
+                            ),
+                    ProductWithNumericAttribute.class
+            );
+
+            // All values in range [-10, 10] are correctly included
+            assertThat(result.hits().total().value()).isEqualTo(6); // -10, -2, -1, 0, 1, 10 (excludes -100)
+            
+            List<String> matchedIds = result.hits().hits().stream()
+                    .map(h -> h.source().getId())
+                    .sorted()
+                    .collect(Collectors.toList());
+
+            // All values in range are correctly included
+            // Note: Product1 (-100) is excluded because it's outside the range [-10, 10]
+            assertThat(matchedIds).containsExactly("2", "3", "4", "5", "6", "7");
         }
     }
 
