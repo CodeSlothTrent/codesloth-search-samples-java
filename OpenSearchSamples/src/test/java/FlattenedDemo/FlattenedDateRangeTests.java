@@ -48,6 +48,10 @@ public class FlattenedDateRangeTests {
      * Tests that ISO8601 formatted dates work correctly with range queries on flattened fields.
      * ISO8601 format ensures proper lexicographic ordering that matches chronological ordering.
      * 
+     * This test uses the same dates as the failure test (flattenedDateRange_NonISOFormat_FailsRangeQueries),
+     * but converts them to ISO8601 format to demonstrate that the same cross-year scenario works correctly
+     * when using ISO8601 format.
+     * 
      * @throws Exception If an I/O error occurs
      */
     @Test
@@ -55,42 +59,50 @@ public class FlattenedDateRangeTests {
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
                 mapping.properties("attribute", Property.of(p -> p.flatObject(f -> f))))) {
 
-            // Create documents with ISO8601 formatted dates
+            // Create documents with ISO8601 formatted dates (same dates as the failure test, but in ISO8601 format)
+            // Using the same days of the year: 12/30, 12/31, 01/01, 01/02
             ProductWithDateAttribute[] products = new ProductWithDateAttribute[]{
-                    new ProductWithDateAttribute("1", "Product1", new DateAttribute("2024-01-15T00:00:00Z")),
-                    new ProductWithDateAttribute("2", "Product2", new DateAttribute("2024-01-20T00:00:00Z")),
-                    new ProductWithDateAttribute("3", "Product3", new DateAttribute("2024-01-25T00:00:00Z")),
-                    new ProductWithDateAttribute("4", "Product4", new DateAttribute("2024-02-01T00:00:00Z")),
-                    new ProductWithDateAttribute("5", "Product5", new DateAttribute("2024-02-10T00:00:00Z"))
+                    new ProductWithDateAttribute("1", "Product1", new DateAttribute("2023-12-30")),
+                    new ProductWithDateAttribute("2", "Product2", new DateAttribute("2023-12-31")),
+                    new ProductWithDateAttribute("3", "Product3", new DateAttribute("2024-01-01")),
+                    new ProductWithDateAttribute("4", "Product4", new DateAttribute("2024-01-02"))
             };
             testIndex.indexDocuments(products);
 
-            // Query for dates between 2024-01-20 and 2024-02-01 (inclusive)
+            // Query for dates between 2023-12-31 and 2024-01-01 (inclusive)
+            // This is the same range as the failure test, but with ISO8601 format
             SearchResponse<ProductWithDateAttribute> result = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .range(r -> r
                                             .field("attribute.createdDate")
-                                            .gte(JsonData.of("2024-01-20T00:00:00Z"))
-                                            .lte(JsonData.of("2024-02-01T00:00:00Z"))
+                                            .gte(JsonData.of("2023-12-31"))
+                                            .lte(JsonData.of("2024-01-01"))
                                     )
                             ),
                     ProductWithDateAttribute.class
             );
 
-            // Should match Product2 (2024-01-20), Product3 (2024-01-25), and Product4 (2024-02-01)
-            assertThat(result.hits().total().value()).isEqualTo(3);
+            // Should match Product2 (2023-12-31) and Product3 (2024-01-01)
+            // This demonstrates that ISO8601 format correctly handles the cross-year scenario
+            assertThat(result.hits().total().value()).isEqualTo(2);
             assertThat(result.hits().hits().stream()
                     .map(h -> h.source().getId())
                     .sorted())
-                    .containsExactly("2", "3", "4");
+                    .containsExactly("2", "3");
         }
     }
 
     /**
      * Tests that non-ISO formatted dates fail range queries on flattened fields.
-     * Non-ISO formats like "01/15/2024" or "January 15, 2024" do not sort correctly
-     * lexicographically, causing range queries to fail.
+     * 
+     * This test demonstrates a cross-year scenario where ASCII ordering fails:
+     * - Chronologically: 12/31/2023 < 01/01/2024 (December 31, 2023 comes before January 1, 2024)
+     * - ASCII: "12/31/2023" > "01/01/2024" (because "1" > "0" in the first character)
+     * 
+     * When querying for dates between 12/31/2023 and 01/01/2024, the range query fails
+     * because "12/31/2023" > "01/01/2024" in ASCII order, so no strings can satisfy
+     * both gte("12/31/2023") and lte("01/01/2024") simultaneously.
      * 
      * @throws Exception If an I/O error occurs
      */
@@ -99,33 +111,37 @@ public class FlattenedDateRangeTests {
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
                 mapping.properties("attribute", Property.of(p -> p.flatObject(f -> f))))) {
 
-            // Create documents with non-ISO formatted dates
+            // Create documents with non-ISO formatted dates (MM/DD/YYYY format)
+            // This includes a cross-year scenario that will fail in ASCII comparison
             ProductWithDateAttribute[] products = new ProductWithDateAttribute[]{
-                    new ProductWithDateAttribute("1", "Product1", new DateAttribute("01/15/2024")),
-                    new ProductWithDateAttribute("2", "Product2", new DateAttribute("01/20/2024")),
-                    new ProductWithDateAttribute("3", "Product3", new DateAttribute("01/25/2024")),
-                    new ProductWithDateAttribute("4", "Product4", new DateAttribute("02/01/2024"))
+                    new ProductWithDateAttribute("1", "Product1", new DateAttribute("12/30/2023")),
+                    new ProductWithDateAttribute("2", "Product2", new DateAttribute("12/31/2023")),
+                    new ProductWithDateAttribute("3", "Product3", new DateAttribute("01/01/2024")),
+                    new ProductWithDateAttribute("4", "Product4", new DateAttribute("01/02/2024"))
             };
             testIndex.indexDocuments(products);
 
-            // Try to query for dates between 01/20/2024 and 02/01/2024
-            // This will fail because "01/20/2024" > "02/01/2024" in ASCII comparison
+            // Try to query for dates between 12/31/2023 and 01/01/2024 (inclusive)
+            // Chronologically, this should match Product2 (12/31/2023) and Product3 (01/01/2024)
+            // However, in ASCII comparison: "12/31/2023" > "01/01/2024" (because "1" > "0")
+            // This means no strings can satisfy both gte("12/31/2023") and lte("01/01/2024")
+            // simultaneously in ASCII order, so the query returns 0 results
             SearchResponse<ProductWithDateAttribute> result = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .range(r -> r
                                             .field("attribute.createdDate")
-                                            .gte(JsonData.of("01/20/2024"))
-                                            .lte(JsonData.of("02/01/2024"))
+                                            .gte(JsonData.of("12/31/2023"))
+                                            .lte(JsonData.of("01/01/2024"))
                                     )
                             ),
                     ProductWithDateAttribute.class
             );
 
-            // The query will fail because "01/20/2024" > "02/01/2024" in ASCII comparison
-            // (the month part "01" comes before "02", but when comparing full strings,
-            // "01/20/2024" > "02/01/2024" lexicographically)
-            // This demonstrates why ISO8601 format is required
+            // The query fails because "12/31/2023" > "01/01/2024" in ASCII comparison
+            // Since the lower bound is greater than the upper bound in ASCII order,
+            // no documents can satisfy both conditions, resulting in 0 results
+            // This demonstrates why ISO8601 format is required for reliable range queries
             assertThat(result.hits().total().value()).isEqualTo(0);
         }
     }
