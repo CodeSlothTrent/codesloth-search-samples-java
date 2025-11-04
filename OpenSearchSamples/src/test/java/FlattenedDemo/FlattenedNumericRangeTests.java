@@ -10,6 +10,8 @@ import TestInfrastructure.OpenSearchTestIndex;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.opensearch.client.opensearch._types.mapping.Property;
 import org.opensearch.client.opensearch.core.SearchResponse;
 import org.opensearch.client.json.JsonData;
@@ -571,5 +573,49 @@ public class FlattenedNumericRangeTests {
                     .collect(Collectors.toList());
             assertThat(matchedIds).containsExactly("1", "2", "3", "4"); // Includes all due to mixed padding
         }
+    }
+
+    /**
+     * Tests two's complement conversion for different integer values.
+     * Demonstrates converting numbers to two's complement representation and back again.
+     * Two's complement is used to convert signed integers to unsigned representation
+     * by adding the offset (|Integer.MIN_VALUE| = 2,147,483,648) to all values.
+     * 
+     * @param originalValueString The original integer value as a string
+     * @param expectedTwoComplementString The expected two's complement value as a string
+     */
+    @ParameterizedTest
+    @CsvSource({
+        "-2147483648, 0",                    // Integer.MIN_VALUE
+        "2147483647, 4294967295",            // Integer.MAX_VALUE
+        "-2, 2147483646",                    // Negative number
+        "2, 2147483650",                     // Positive number
+        "0, 2147483648"                      // Zero
+    })
+    public void flattenedNumericRange_TwosComplementConversion_ConvertsCorrectly(
+            String originalValueString, String expectedTwoComplementString) {
+        
+        // Two's complement offset: |Integer.MIN_VALUE| = 2,147,483,648
+        final long offset = Math.abs((long)Integer.MIN_VALUE);
+        
+        // Convert string input to integer
+        int originalValue = Integer.parseInt(originalValueString);
+        
+        // Convert to two's complement representation
+        long twoComplementValue = originalValue + offset;
+        
+        // Convert expected string to long for comparison
+        long expectedTwoComplement = Long.parseLong(expectedTwoComplementString);
+        
+        // Assert that the conversion matches the expected value
+        assertThat(twoComplementValue).as("Two's complement conversion for %s", originalValueString)
+                .isEqualTo(expectedTwoComplement);
+        
+        // Convert back from two's complement to original value
+        int convertedBackValue = (int)(twoComplementValue - offset);
+        
+        // Assert that converting back matches the original value
+        assertThat(convertedBackValue).as("Converted back value for %s", originalValueString)
+                .isEqualTo(originalValue);
     }
 }
