@@ -156,31 +156,33 @@ public class FlattenedDateRangeTests {
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
                 mapping.properties("attribute", Property.of(p -> p.flatObject(f -> f))))) {
 
+            // Use the same dates as the main range query test for consistency
             ProductWithDateAttribute[] products = new ProductWithDateAttribute[]{
-                    new ProductWithDateAttribute("1", "Product1", new DateAttribute("2024-01-15")),
-                    new ProductWithDateAttribute("2", "Product2", new DateAttribute("2024-01-20")),
-                    new ProductWithDateAttribute("3", "Product3", new DateAttribute("2024-01-25"))
+                    new ProductWithDateAttribute("1", "Product1", new DateAttribute("2023-12-30")),
+                    new ProductWithDateAttribute("2", "Product2", new DateAttribute("2023-12-31")),
+                    new ProductWithDateAttribute("3", "Product3", new DateAttribute("2024-01-01")),
+                    new ProductWithDateAttribute("4", "Product4", new DateAttribute("2024-01-02"))
             };
             testIndex.indexDocuments(products);
 
-            // Query for dates >= 2024-01-20
+            // Query for dates >= 2023-12-31
             SearchResponse<ProductWithDateAttribute> result = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .range(r -> r
                                             .field("attribute.createdDate")
-                                            .gte(JsonData.of("2024-01-20"))
+                                            .gte(JsonData.of("2023-12-31"))
                                     )
                             ),
                     ProductWithDateAttribute.class
             );
 
-            // Should match Product2 (2024-01-20) and Product3 (2024-01-25)
-            assertThat(result.hits().total().value()).isEqualTo(2);
+            // Should match Product2 (2023-12-31), Product3 (2024-01-01), and Product4 (2024-01-02)
+            assertThat(result.hits().total().value()).isEqualTo(3);
             assertThat(result.hits().hits().stream()
                     .map(h -> h.source().getId())
                     .sorted())
-                    .containsExactly("2", "3");
+                    .containsExactly("2", "3", "4");
         }
     }
 
@@ -194,31 +196,33 @@ public class FlattenedDateRangeTests {
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
                 mapping.properties("attribute", Property.of(p -> p.flatObject(f -> f))))) {
 
+            // Use the same dates as the main range query test for consistency
             ProductWithDateAttribute[] products = new ProductWithDateAttribute[]{
-                    new ProductWithDateAttribute("1", "Product1", new DateAttribute("2024-01-15")),
-                    new ProductWithDateAttribute("2", "Product2", new DateAttribute("2024-01-20")),
-                    new ProductWithDateAttribute("3", "Product3", new DateAttribute("2024-01-25"))
+                    new ProductWithDateAttribute("1", "Product1", new DateAttribute("2023-12-30")),
+                    new ProductWithDateAttribute("2", "Product2", new DateAttribute("2023-12-31")),
+                    new ProductWithDateAttribute("3", "Product3", new DateAttribute("2024-01-01")),
+                    new ProductWithDateAttribute("4", "Product4", new DateAttribute("2024-01-02"))
             };
             testIndex.indexDocuments(products);
 
-            // Query for dates <= 2024-01-20
+            // Query for dates <= 2024-01-01
             SearchResponse<ProductWithDateAttribute> result = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .range(r -> r
                                             .field("attribute.createdDate")
-                                            .lte(JsonData.of("2024-01-20"))
+                                            .lte(JsonData.of("2024-01-01"))
                                     )
                             ),
                     ProductWithDateAttribute.class
             );
 
-            // Should match Product1 (2024-01-15) and Product2 (2024-01-20)
-            assertThat(result.hits().total().value()).isEqualTo(2);
+            // Should match Product1 (2023-12-30), Product2 (2023-12-31), and Product3 (2024-01-01)
+            assertThat(result.hits().total().value()).isEqualTo(3);
             assertThat(result.hits().hits().stream()
                     .map(h -> h.source().getId())
                     .sorted())
-                    .containsExactly("1", "2");
+                    .containsExactly("1", "2", "3");
         }
     }
 
@@ -232,31 +236,33 @@ public class FlattenedDateRangeTests {
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
                 mapping.properties("attribute", Property.of(p -> p.flatObject(f -> f))))) {
 
+            // Use the same dates as the main range query test for consistency
             ProductWithDateAttribute[] products = new ProductWithDateAttribute[]{
-                    new ProductWithDateAttribute("1", "Product1", new DateAttribute("2024-01-15")),
-                    new ProductWithDateAttribute("2", "Product2", new DateAttribute("2024-01-20")),
-                    new ProductWithDateAttribute("3", "Product3", new DateAttribute("2024-01-25"))
+                    new ProductWithDateAttribute("1", "Product1", new DateAttribute("2023-12-30")),
+                    new ProductWithDateAttribute("2", "Product2", new DateAttribute("2023-12-31")),
+                    new ProductWithDateAttribute("3", "Product3", new DateAttribute("2024-01-01")),
+                    new ProductWithDateAttribute("4", "Product4", new DateAttribute("2024-01-02"))
             };
             testIndex.indexDocuments(products);
 
-            // Query for dates > 2024-01-20
+            // Query for dates > 2023-12-31
             SearchResponse<ProductWithDateAttribute> result = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .range(r -> r
                                             .field("attribute.createdDate")
-                                            .gt(JsonData.of("2024-01-20"))
+                                            .gt(JsonData.of("2023-12-31"))
                                     )
                             ),
                     ProductWithDateAttribute.class
             );
 
-            // Should match only Product3 (2024-01-25), not Product2 (exact match)
-            assertThat(result.hits().total().value()).isEqualTo(1);
+            // Should match Product3 (2024-01-01) and Product4 (2024-01-02), not Product2 (exact match excluded)
+            assertThat(result.hits().total().value()).isEqualTo(2);
             assertThat(result.hits().hits().stream()
                     .map(h -> h.source().getId())
                     .sorted())
-                    .containsExactly("3");
+                    .containsExactly("3", "4");
         }
     }
 
@@ -270,31 +276,33 @@ public class FlattenedDateRangeTests {
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
                 mapping.properties("attribute", Property.of(p -> p.flatObject(f -> f))))) {
 
+            // Use the same dates as the main range query test for consistency
             ProductWithDateAttribute[] products = new ProductWithDateAttribute[]{
-                    new ProductWithDateAttribute("1", "Product1", new DateAttribute("2024-01-15")),
-                    new ProductWithDateAttribute("2", "Product2", new DateAttribute("2024-01-20")),
-                    new ProductWithDateAttribute("3", "Product3", new DateAttribute("2024-01-25"))
+                    new ProductWithDateAttribute("1", "Product1", new DateAttribute("2023-12-30")),
+                    new ProductWithDateAttribute("2", "Product2", new DateAttribute("2023-12-31")),
+                    new ProductWithDateAttribute("3", "Product3", new DateAttribute("2024-01-01")),
+                    new ProductWithDateAttribute("4", "Product4", new DateAttribute("2024-01-02"))
             };
             testIndex.indexDocuments(products);
 
-            // Query for dates < 2024-01-20
+            // Query for dates < 2024-01-01
             SearchResponse<ProductWithDateAttribute> result = loggingOpenSearchClient.search(s -> s
                             .index(testIndex.getName())
                             .query(q -> q
                                     .range(r -> r
                                             .field("attribute.createdDate")
-                                            .lt(JsonData.of("2024-01-20"))
+                                            .lt(JsonData.of("2024-01-01"))
                                     )
                             ),
                     ProductWithDateAttribute.class
             );
 
-            // Should match only Product1 (2024-01-15), not Product2 (exact match)
-            assertThat(result.hits().total().value()).isEqualTo(1);
+            // Should match Product1 (2023-12-30) and Product2 (2023-12-31), not Product3 (exact match excluded)
+            assertThat(result.hits().total().value()).isEqualTo(2);
             assertThat(result.hits().hits().stream()
                     .map(h -> h.source().getId())
                     .sorted())
-                    .containsExactly("1");
+                    .containsExactly("1", "2");
         }
     }
 
