@@ -1,6 +1,6 @@
 # OpenSearch Java Samples
 
-This repository contains Java code samples for working with OpenSearch, demonstrating various features and capabilities of the OpenSearch Java client through comprehensive test suites.
+This repository contains Java code samples for working with OpenSearch, demonstrating various features and capabilities of the OpenSearch Java client through comprehensive test suites to accompany blog posts at https://codesloth.blog.
 
 ## Project Structure
 
