@@ -23,15 +23,28 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Tests for numeric range queries on flattened fields in OpenSearch.
- * 
+ * <p>
  * Flattened fields store all sub-properties as keywords (unanalyzed strings). For numeric range queries
  * to work correctly, numeric values must be zero-padded to the same length because they are compared
- * lexicographically (ASCII), not numerically. This means:
- * - Unpadded numbers (e.g., "1", "10", "100") will not work correctly - "10" < "2" in ASCII comparison
- * - Zero-padded numbers (e.g., "0001", "0010", "0100") will work correctly
- * - All numbers must be padded to the maximum size (up to Integer.MAX_VALUE = 2,147,483,647 = 10 digits)
- * - Negative numbers may have additional complications
- * 
+ * lexicographically (ASCII), not numerically.
+ * <p>
+ * Key behaviors:
+ * <ul>
+ *   <li><strong>Unpadded numbers fail:</strong> Range queries on unpadded numbers (e.g., "1", "10", "100")
+ *       fail because lexicographic comparison doesn't match numeric ordering. For example, a range ["1", "10"]
+ *       will only match "1" and "10", excluding "100" (which is lexicographically &gt; "10") and "2"
+ *       (which is also lexicographically &gt; "10").</li>
+ *   <li><strong>Zero-padded numbers work:</strong> When all numbers are padded to the same length
+ *       (e.g., "0001", "0010", "0100"), lexicographic comparison matches numeric comparison.</li>
+ *   <li><strong>Maximum padding required:</strong> All numbers must be padded to the maximum size
+ *       (up to Integer.MAX_VALUE = 2,147,483,647 = 10 digits) to support the full integer range.</li>
+ *   <li><strong>Negative numbers:</strong> Zero-padding alone doesn't solve negative number ranges that
+ *       span from negative to positive values. A two's complement approach (adding |Integer.MIN_VALUE|)
+ *       converts all values to positive, enabling correct range queries.</li>
+ *   <li><strong>Mixed padding fails:</strong> Mixing padded and unpadded numbers causes incorrect results
+ *       because padded values may fall outside the lexicographic range bounds.</li>
+ * </ul>
+ * <p>
  * OpenSearch documentation: https://opensearch.org/docs/latest/field-types/supported-field-types/flattened/
  */
 @ExtendWith(OpenSearchResourceManagementExtension.class)
@@ -50,7 +63,15 @@ public class FlattenedNumericRangeTests {
 
     /**
      * Tests that unpadded numbers fail range queries on flattened fields.
-     * ASCII comparison means "10" < "2" (because "1" < "2" in ASCII), which breaks numeric ordering.
+     * <p>
+     * When querying for a range ["1", "10"] on unpadded numbers, the query fails because:
+     * <ul>
+     *   <li>ASCII comparison order is: "1", "10", "100", "1000", "2"</li>
+     *   <li>The range query ["1", "10"] lexicographically matches only "1" and "10"</li>
+     *   <li>Values like "100" and "1000" are excluded because they're lexicographically &gt; "10"</li>
+     *   <li>The value "2" is excluded because it's lexicographically &gt; "10"</li>
+     * </ul>
+     * Numerically, we expect 3 results (1, 2, 10), but only 2 are returned (1, 10).
      * 
      * @throws Exception If an I/O error occurs
      */
@@ -528,7 +549,15 @@ public class FlattenedNumericRangeTests {
 
     /**
      * Tests that mixing padded and unpadded numbers causes incorrect results.
-     * This demonstrates why all numbers must be consistently padded.
+     * <p>
+     * When mixing padding formats, lexicographic comparison breaks range queries:
+     * <ul>
+     *   <li>ASCII order: "0002" &lt; "0010" &lt; "1" &lt; "10"</li>
+     *   <li>A range query ["1", "10"] only matches "1" and "10"</li>
+     *   <li>Padded values "0002" and "0010" are excluded because they're lexicographically &lt; "1"</li>
+     *   <li>Numeric values 2 and 10 (as padded strings) are incorrectly excluded</li>
+     * </ul>
+     * This demonstrates why all numbers must be consistently padded to the same length.
      * 
      * @throws Exception If an I/O error occurs
      */
