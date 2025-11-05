@@ -128,7 +128,7 @@ public class SharedOpenSearchContainer {
         
         // Create and configure OpenSearch container with fixed port
         logger.info("Creating shared OpenSearch container with fixed port " + OPENSEARCH_HTTP_PORT + "...");
-        opensearchContainer = new OpensearchContainer("opensearchproject/opensearch:2.11.1");
+        opensearchContainer = new OpensearchContainer("opensearchproject/opensearch:2.19.3");
         opensearchContainer.withEnv("discovery.type", "single-node");
         opensearchContainer.withEnv("OPENSEARCH_JAVA_OPTS", "-Xms512m -Xmx512m");
         opensearchContainer.withStartupTimeout(Duration.ofMinutes(2));
@@ -146,7 +146,7 @@ public class SharedOpenSearchContainer {
         
         // Create and configure OpenSearch Dashboards container with fixed port
         logger.info("Creating OpenSearch Dashboards container with fixed port " + DASHBOARDS_HTTP_PORT + "...");
-        dashboardsContainer = new GenericContainer<>("opensearchproject/opensearch-dashboards:2.11.1");
+        dashboardsContainer = new GenericContainer<>("opensearchproject/opensearch-dashboards:2.19.3");
         dashboardsContainer.withNetwork(network);
         dashboardsContainer.withNetworkAliases(DASHBOARDS_CONTAINER_NAME);
         dashboardsContainer.withExposedPorts(DASHBOARDS_HTTP_PORT);

@@ -84,16 +84,16 @@ public class FlattenedNumericRangeTests {
             );
 
             // The query will fail because ASCII comparison order is: "1", "10", "100", "1000", "2"
-            // So "1" <= x <= "10" matches "1", "10", "100", "1000" but not "2"
+            // So "1" <= x <= "10" matches only "1" and "10" (not "100" or "1000" since they're > "10" lexicographically)
             // Expected 3 (1, 2, 10) but will be wrong due to ASCII comparison
             assertThat(result.hits().total().value()).isNotEqualTo(3);
             
-            // Verify the actual incorrect results: matches "1", "10", "100", "1000" but excludes "2"
+            // Verify the actual incorrect results: matches only "1" and "10", missing "2", "100", and "1000"
             List<String> matchedIds = result.hits().hits().stream()
                     .map(h -> h.source().getId())
                     .sorted()
                     .collect(Collectors.toList());
-            assertThat(matchedIds).containsExactly("1", "3", "4", "5"); // Missing "2"!
+            assertThat(matchedIds).containsExactly("1", "3"); // Missing "2", "4" (100), and "5" (1000)!
         }
     }
 
@@ -562,16 +562,16 @@ public class FlattenedNumericRangeTests {
 
             // The results will be incorrect due to mixed padding
             // ASCII order: "0002" < "0010" < "1" < "10"
-            // So "1" <= x <= "10" matches "1", "10", but also "0002" and "0010" (which are numerically 2 and 10)
+            // So "1" <= x <= "10" matches only "1" and "10" (not "0002" or "0010" since they're < "1" lexicographically)
             // Expected 3 (1, 2, 10) but will be wrong due to mixed padding
             assertThat(result.hits().total().value()).isNotEqualTo(3);
             
-            // Verify the actual incorrect results: includes padded values that shouldn't be in range
+            // Verify the actual incorrect results: matches only "1" and "10", missing "2" and "4" (padded values)
             List<String> matchedIds = result.hits().hits().stream()
                     .map(h -> h.source().getId())
                     .sorted()
                     .collect(Collectors.toList());
-            assertThat(matchedIds).containsExactly("1", "2", "3", "4"); // Includes all due to mixed padding
+            assertThat(matchedIds).containsExactly("1", "3"); // Missing "2" (0002) and "4" (0010) due to mixed padding!
         }
     }
 
