@@ -348,17 +348,17 @@ public class FlattenedNumericRangeTests {
 
             // Two's complement offset: Integer.MIN_VALUE absolute value = 2,147,483,648
             // This converts all negative numbers to positive, ensuring correct ASCII ordering
-            // All values are zero-padded to 10 digits (max value after offset: 4,294,967,295)
+            // The offset ensures all values are already 10 digits (max value after offset: 4,294,967,295)
             final long offset = 2147483648L; // |Integer.MIN_VALUE|
             
             ProductWithNumericAttribute[] products = new ProductWithNumericAttribute[]{
-                    new ProductWithNumericAttribute("1", "Product1", new NumericAttribute(String.format("%010d", -100 + offset))),
-                    new ProductWithNumericAttribute("2", "Product2", new NumericAttribute(String.format("%010d", -10 + offset))),
-                    new ProductWithNumericAttribute("3", "Product3", new NumericAttribute(String.format("%010d", -2 + offset))),
-                    new ProductWithNumericAttribute("4", "Product4", new NumericAttribute(String.format("%010d", -1 + offset))),
-                    new ProductWithNumericAttribute("5", "Product5", new NumericAttribute(String.format("%010d", 0 + offset))),
-                    new ProductWithNumericAttribute("6", "Product6", new NumericAttribute(String.format("%010d", 1 + offset))),
-                    new ProductWithNumericAttribute("7", "Product7", new NumericAttribute(String.format("%010d", 10 + offset)))
+                    new ProductWithNumericAttribute("1", "Product1", new NumericAttribute(String.valueOf(-100 + offset))),
+                    new ProductWithNumericAttribute("2", "Product2", new NumericAttribute(String.valueOf(-10 + offset))),
+                    new ProductWithNumericAttribute("3", "Product3", new NumericAttribute(String.valueOf(-2 + offset))),
+                    new ProductWithNumericAttribute("4", "Product4", new NumericAttribute(String.valueOf(-1 + offset))),
+                    new ProductWithNumericAttribute("5", "Product5", new NumericAttribute(String.valueOf(0 + offset))),
+                    new ProductWithNumericAttribute("6", "Product6", new NumericAttribute(String.valueOf(1 + offset))),
+                    new ProductWithNumericAttribute("7", "Product7", new NumericAttribute(String.valueOf(10 + offset)))
             };
             testIndex.indexDocuments(products);
 
@@ -369,8 +369,8 @@ public class FlattenedNumericRangeTests {
                             .query(q -> q
                                     .range(r -> r
                                             .field("attribute.value")
-                                            .gte(JsonData.of(String.format("%010d", -10 + offset)))
-                                            .lte(JsonData.of(String.format("%010d", 10 + offset)))
+                                            .gte(JsonData.of(String.valueOf(-10 + offset)))
+                                            .lte(JsonData.of(String.valueOf(10 + offset)))
                                     )
                             ),
                     ProductWithNumericAttribute.class
