@@ -109,7 +109,7 @@ public class OpenSearchTestIndex implements AutoCloseable {
         var bulkResponse = openSearchClient.bulk(builtRequest);
 
         if (bulkResponse.errors()) {
-            throw new IOException("Failed to index documents: " + bulkResponse.toString());
+            throw new IOException("Failed to index documents: " + bulkResponse.toJsonString());
         }
     }
 
