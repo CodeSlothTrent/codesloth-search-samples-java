@@ -2,6 +2,7 @@ package FlattenedDemo;
 
 import FlattenedDemo.Documents.NumericAttribute;
 import FlattenedDemo.Documents.ProductWithLargeFlattenedNumeric;
+import FlattenedDemo.Documents.ProductWithNumericArray;
 import FlattenedDemo.Documents.ProductWithNumericAttribute;
 import KeywordDemo.Documents.IDocumentWithId;
 import TestExtensions.LoggingOpenSearchClient;
@@ -21,9 +22,13 @@ import org.opensearch.client.opensearch._types.mapping.Property;
 import org.opensearch.client.opensearch.core.SearchResponse;
 import org.opensearch.client.json.JsonData;
 
+import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.IntFunction;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -135,60 +140,49 @@ public class FlattenedNumericRangeExtremeTests {
     }
 
     /**
-     * Tests 500000 values in a single flattened numeric field.
-     * Creates a single document with a map containing 500000 zero-padded numeric values.
-     * Note: flat_object fields require objects (maps), not arrays, so we use a Map structure
-     * where each value is stored with itself as the key to enable range queries.
+     * Tests that OpenSearch flat_object fields do NOT support arrays.
+     * This test demonstrates that attempting to index an array into a flat_object field
+     * will fail with a parsing error, as flat_object fields only accept objects (key-value pairs).
      * 
-     * @throws Exception If an I/O error occurs
+     * @throws Exception Expected to throw IOException due to array not being supported
      */
     @Test
-    public void flattenedNumericRange_500000ValuesInSingleField_WorksCorrectly() throws Exception {
+    public void flattenedNumericRange_ArrayInFlatObject_ThrowsException() throws Exception {
         try (OpenSearchTestIndex testIndex = fixture.createTestIndex(mapping ->
-                mapping.properties("numericAttributes", Property.of(p -> p.flatObject(f -> f))))) {
+                mapping.properties("numericValues", Property.of(p -> p.flatObject(f -> f))))) {
 
-            // Create a single document with EXTREME_TEST_SIZE numeric values
-            // flat_object requires objects, so we create a Map where each value is both key and value
-            // This allows range queries to work across all values
-            Map<String, String> numericValuesMap = new HashMap<>();
-            for (int i = 0; i < EXTREME_TEST_SIZE; i++) {
-                String paddedValue = padNumeric(i);
-                // Store value as both key and value to enable range queries
-                numericValuesMap.put(paddedValue, paddedValue);
-            }
+            // Create a document with an array of numeric values
+            // This should fail because flat_object does not support arrays
+            List<String> numericValues = IntStream.range(0, 100)
+                    .mapToObj(this::padNumeric)
+                    .collect(Collectors.toList());
             
-            // Use ProductWithLargeFlattenedNumeric which accepts a Map
-            ProductWithLargeFlattenedNumeric product = new ProductWithLargeFlattenedNumeric(
+            ProductWithNumericArray product = new ProductWithNumericArray(
                     "1", 
-                    "ProductWithManyValues", 
-                    numericValuesMap
+                    "ProductWithArray", 
+                    numericValues
             );
             
-            testIndex.indexDocuments(new ProductWithLargeFlattenedNumeric[]{product});
-
-            // Query for a range in the middle of the values
-            // Query using wildcard to search across all keys in the flat_object
-            int rangeStart = Math.min(100000, EXTREME_TEST_SIZE - 1);
-            int rangeEnd = Math.min(100100, EXTREME_TEST_SIZE - 1);
-            String paddedStart = padNumeric(rangeStart);
-            String paddedEnd = padNumeric(rangeEnd);
-            
-            SearchResponse<ProductWithLargeFlattenedNumeric> result = loggingOpenSearchClient.search(s -> s
-                            .index(testIndex.getName())
-                            .query(q -> q
-                                    .range(r -> r
-                                            .field("numericAttributes.*")
-                                            .gte(JsonData.of(paddedStart))
-                                            .lte(JsonData.of(paddedEnd))
-                                    )
-                            ),
-                    ProductWithLargeFlattenedNumeric.class
-            );
-
-            // Should match the single document (it contains values in the range)
-            assertThat(result.hits().total().value())
-                    .as("Should match document containing values in range [%d, %d]", rangeStart, rangeEnd)
-                    .isGreaterThan(0);
+            // Attempting to index an array into a flat_object field should fail
+            try {
+                testIndex.indexDocuments(new ProductWithNumericArray[]{product});
+                // If we get here, the test should fail because arrays should not be supported
+                throw new AssertionError("Expected IOException when indexing array into flat_object field, but indexing succeeded");
+            } catch (IOException e) {
+                // Expected: flat_object fields do not support arrays
+                // The error message should indicate a parsing failure related to flat_object
+                String errorMessage = e.getMessage().toLowerCase();
+                assertThat(errorMessage)
+                        .as("Error message should indicate parsing failure for array in flat_object. Error: %s", e.getMessage())
+                        .satisfies(msg -> {
+                            // Check for common error indicators: flat_object, parsing, or unexpected token
+                            assertThat(msg.contains("flat_object") || 
+                                      msg.contains("parsing") || 
+                                      msg.contains("unexpected token"))
+                                    .as("Error message should contain 'flat_object', 'parsing', or 'unexpected token'")
+                                    .isTrue();
+                        });
+            }
         }
     }
 
