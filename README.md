@@ -30,6 +30,10 @@ Testcontainers will automatically:
 - Run the tests
 - Clean up the container after tests complete
 
+### Slow log fixture capture
+
+Multi-engine slow-log capture tests live in `SlowLogDemo/` and are documented in [OpenSearchSamples/docs/slow-log-capture.md](OpenSearchSamples/docs/slow-log-capture.md). They are opt-in (`-Dslowlog.enableCapture=true`) and do not affect the shared OpenSearch singleton used by the other demos.
+
 ## Test Categories
 
 ### Getting Started

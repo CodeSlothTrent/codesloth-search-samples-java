@@ -3,6 +3,8 @@
 
 # Log file
 *.log
+# Committed slow-log fixture samples for the blog viewer
+!OpenSearchSamples/src/test/resources/slowlog/**/*.log
 
 # BlueJ files
 *.ctxt
