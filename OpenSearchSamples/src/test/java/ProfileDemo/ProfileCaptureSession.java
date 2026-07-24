@@ -5,7 +5,7 @@ import SlowLogDemo.SearchEngineHttp;
 import java.nio.file.Path;
 
 /**
- * Shared capture flow: wait for cluster → index → profiled heavy search → write fixture.
+ * Shared capture flow: wait for cluster → index → profiled heavy search → write envelope fixture.
  */
 public final class ProfileCaptureSession {
 
@@ -17,11 +17,12 @@ public final class ProfileCaptureSession {
             http.waitForClusterHealth();
             ProfileWorkload.createIndex(http);
             ProfileWorkload.seedDocuments(http);
-            String body = ProfileWorkload.runProfiledHeavySearch(http);
-            if (body == null || !body.contains("\"profile\"")) {
+            var result = ProfileWorkload.runProfiledHeavySearch(http);
+            if (result.responseJson() == null || !result.responseJson().contains("\"profile\"")) {
                 throw new IllegalStateException("Search response did not include a profile section");
             }
-            return ProfileFixtureWriter.writeFixture(engineSlug, version, body);
+            return ProfileFixtureWriter.writeFixture(
+                    engineSlug, version, result.requestJson(), result.responseJson());
         }
     }
 }

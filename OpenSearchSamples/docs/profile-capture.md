@@ -13,7 +13,16 @@ Requires Docker. Uses dedicated ports **19300–19302** (does not conflict with 
 
 ## Outputs
 
-Written under `test-outputs/profile/`:
+Written under `test-outputs/profile/` as **envelopes**:
+
+```json
+{
+  "request": { "profile": true, "query": { ... } },
+  "response": { "took": ..., "profile": { "shards": [...] } }
+}
+```
+
+Files:
 
 - `opensearch-2.19.3-search-profile.json`
 - `elasticsearch-8.18.0-search-profile.json`
@@ -26,7 +35,4 @@ cp test-outputs/profile/*-search-profile.json \
   /Users/trentsky/dev/codesloth-blog/public/tools/profile/
 ```
 
-## Notes
-
-- These are full search responses (hits + aggregations + `profile`), not slow-log lines.
-- The blog viewer parses the `profile` tree (`time_in_nanos`) for measured waterfalls.
+The viewer also accepts a bare profile response (no `request`) for waterfall-only use.

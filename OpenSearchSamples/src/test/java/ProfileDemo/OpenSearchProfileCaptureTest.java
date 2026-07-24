@@ -58,6 +58,8 @@ class OpenSearchProfileCaptureTest {
         assertThat(Files.exists(out)).isTrue();
         String json = Files.readString(out);
         assertThat(json).contains("\"profile\"");
+        assertThat(json).contains("\"request\"");
+        assertThat(json).contains("\"response\"");
         assertThat(json).contains("time_in_nanos");
     }
 }

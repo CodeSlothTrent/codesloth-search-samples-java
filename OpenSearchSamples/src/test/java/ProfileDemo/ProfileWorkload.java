@@ -13,6 +13,49 @@ public final class ProfileWorkload {
 
     public static final String INDEX_NAME = "profile-demo-products";
 
+    /** Shared search body — also stored in the capture envelope as {@code request}. */
+    public static final String HEAVY_SEARCH_REQUEST = """
+            {
+              "profile": true,
+              "size": 100,
+              "track_total_hits": true,
+              "query": {
+                "bool": {
+                  "must": [
+                    {
+                      "wildcard": {
+                        "description": {
+                          "value": "*lorem*"
+                        }
+                      }
+                    },
+                    {
+                      "script": {
+                        "script": {
+                          "source": "double total = 0; for (int j = 0; j < 8000; j++) { total += Math.sqrt(j + doc['price'].value); } return total > 0;",
+                          "lang": "painless"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "aggs": {
+                "categories": {
+                  "terms": {
+                    "field": "category",
+                    "size": 50
+                  },
+                  "aggs": {
+                    "avg_price": {
+                      "avg": { "field": "price" }
+                    }
+                  }
+                }
+              }
+            }
+            """;
+
     private ProfileWorkload() {
     }
 
@@ -53,50 +96,13 @@ public final class ProfileWorkload {
         http.post("/_bulk?refresh=true", bulk.toString());
     }
 
-    /** Heavy search body with profiling enabled — returns the raw HTTP JSON response. */
-    public static String runProfiledHeavySearch(SearchEngineHttp http)
+    public record ProfiledSearch(String requestJson, String responseJson) {
+    }
+
+    /** Heavy search with profiling — returns request + response for the blog envelope format. */
+    public static ProfiledSearch runProfiledHeavySearch(SearchEngineHttp http)
             throws IOException, InterruptedException {
-        var response = http.post("/" + INDEX_NAME + "/_search", """
-                {
-                  "profile": true,
-                  "size": 100,
-                  "track_total_hits": true,
-                  "query": {
-                    "bool": {
-                      "must": [
-                        {
-                          "wildcard": {
-                            "description": {
-                              "value": "*lorem*"
-                            }
-                          }
-                        },
-                        {
-                          "script": {
-                            "script": {
-                              "source": "double total = 0; for (int j = 0; j < 8000; j++) { total += Math.sqrt(j + doc['price'].value); } return total > 0;",
-                              "lang": "painless"
-                            }
-                          }
-                        }
-                      ]
-                    }
-                  },
-                  "aggs": {
-                    "categories": {
-                      "terms": {
-                        "field": "category",
-                        "size": 50
-                      },
-                      "aggs": {
-                        "avg_price": {
-                          "avg": { "field": "price" }
-                        }
-                      }
-                    }
-                  }
-                }
-                """);
-        return response.body();
+        var response = http.post("/" + INDEX_NAME + "/_search", HEAVY_SEARCH_REQUEST);
+        return new ProfiledSearch(HEAVY_SEARCH_REQUEST.trim(), response.body());
     }
 }

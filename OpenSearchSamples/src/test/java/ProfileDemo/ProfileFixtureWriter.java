@@ -9,7 +9,12 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 /**
- * Writes captured Profile API JSON to {@code test-outputs/profile/} when capture is enabled.
+ * Writes captured Profile API envelopes to {@code test-outputs/profile/} when capture is enabled.
+ * <p>
+ * Envelope shape (CodeSloth blog viewer):
+ * <pre>
+ * { "request": { ...search body... }, "response": { ...hits + profile... } }
+ * </pre>
  */
 public final class ProfileFixtureWriter {
 
@@ -23,7 +28,8 @@ public final class ProfileFixtureWriter {
         return Boolean.parseBoolean(System.getProperty(CAPTURE_PROPERTY, "false"));
     }
 
-    public static Path writeFixture(String engineSlug, String version, String jsonBody)
+    public static Path writeFixture(
+            String engineSlug, String version, String requestJson, String responseJson)
             throws IOException {
         Path outputDir = Paths.get(OUTPUT_DIR);
         Files.createDirectories(outputDir);
@@ -31,23 +37,28 @@ public final class ProfileFixtureWriter {
         String fileName = engineSlug + "-" + version + "-search-profile.json";
         Path outputPath = outputDir.resolve(fileName);
 
-        // Pretty-print lightly via identity — body is already JSON from the engine.
-        String headerComment = """
-                /* Captured by ProfileDemo integration tests
-                 * engine=%s version=%s
-                 * capturedAt=%s
-                 * Re-copy to codesloth-blog/public/tools/profile/ for the blog viewer.
-                 */
+        // Build envelope without requiring a JSON library — request/response are already JSON objects.
+        String envelope = """
+                {
+                  "request": %s,
+                  "response": %s
+                }
+                """.formatted(requestJson.trim(), responseJson.trim());
+
+        Files.writeString(outputPath, envelope + "\n", StandardCharsets.UTF_8);
+
+        Path metaPath = outputDir.resolve(engineSlug + "-" + version + "-search-profile.meta.txt");
+        String meta = """
+                Captured by ProfileDemo integration tests
+                engine=%s version=%s
+                capturedAt=%s
+                format=request+response envelope
+                Re-copy to codesloth-blog/public/tools/profile/ for the blog viewer.
                 """.formatted(
                 engineSlug,
                 version,
                 LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
-
-        // JSON files cannot include /* */ comments — write pure JSON only.
-        Files.writeString(outputPath, jsonBody.trim() + "\n", StandardCharsets.UTF_8);
-
-        Path metaPath = outputDir.resolve(engineSlug + "-" + version + "-search-profile.meta.txt");
-        Files.writeString(metaPath, headerComment, StandardCharsets.UTF_8);
+        Files.writeString(metaPath, meta, StandardCharsets.UTF_8);
 
         return outputPath;
     }
